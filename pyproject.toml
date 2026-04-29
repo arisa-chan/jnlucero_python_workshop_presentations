@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyxel-slides"
+version = "0.1.0"
+description = "Markdown-driven retro presentation engine built on Pyxel."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "pyxel-slides contributors" }]
+dependencies = [
+    "pyxel>=2.0",
+    "markdown-it-py>=3.0",
+    "mdit-py-plugins>=0.4",
+]
+
+[project.optional-dependencies]
+# Reserved for later phases (math, code highlighting, image dithering).
+full = [
+    "Pygments>=2.17",
+    "Pillow>=10.0",
+    "matplotlib>=3.8",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+pyxel-slides = "pyxel_slides.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyxel_slides*"]

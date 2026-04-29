@@ -1,0 +1,112 @@
+"""Intermediate representation for parsed slides.
+
+Phase 2: TextRun inline styles, typed Paragraph/ListBlock.
+Phase 4: ImageBlock for ``![alt](path)`` blocks.
+Phase 5: MathBlock for ``$$...$$`` display math; TextRun.math for ``$...$`` inline math.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import List, Literal, Union
+
+
+HeadingLevel = Literal[1, 2, 3, 4, 5, 6]
+
+
+@dataclass
+class TextRun:
+    """An atomic piece of inline text with optional style flags."""
+
+    text: str
+    bold: bool = False
+    italic: bool = False
+    highlight: bool = False  # accent-bg rect behind text; parsed in a later phase
+    code: bool = False       # inline ``code`` span
+    url: str = ""            # non-empty = hyperlink (click handler comes in Phase 6)
+    math: bool = False       # inline ``$...$`` math span (expr stored in .text)
+
+    @property
+    def is_plain(self) -> bool:
+        return not (self.bold or self.italic or self.highlight or self.code or self.url or self.math)
+
+
+def plain(text: str) -> List[TextRun]:
+    """Wrap a plain string as a single-element TextRun list."""
+    return [TextRun(text=text)]
+
+
+@dataclass
+class Heading:
+    level: HeadingLevel
+    text: str  # Headings always render as plain text
+
+
+@dataclass
+class Paragraph:
+    runs: List[TextRun]
+
+    @property
+    def text(self) -> str:
+        """Backward-compat: full plain text of all runs."""
+        return "".join(r.text for r in self.runs)
+
+
+@dataclass
+class ListBlock:
+    items: List[List[TextRun]]  # each list item = a list of TextRun
+    ordered: bool = False
+
+
+@dataclass
+class CodeBlock:
+    code: str
+    language: str = ""
+
+
+@dataclass
+class ImageBlock:
+    """A standalone image parsed from ``![alt](path)``."""
+    path: str       # path as written in the Markdown source
+    alt: str = ""   # alt text
+
+
+@dataclass
+class MathBlock:
+    """Display-mode math block parsed from ``$$...$$``."""
+    expr: str   # raw LaTeX expression (without surrounding dollar signs)
+
+
+Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock]
+
+
+@dataclass
+class Slide:
+    blocks: List[Block] = field(default_factory=list)
+
+    @property
+    def is_section_title(self) -> bool:
+        """A slide whose first non-empty block is an H1 is a section-title slide."""
+        for b in self.blocks:
+            if isinstance(b, Heading):
+                return b.level == 1
+            return False
+        return False
+
+    @property
+    def title(self) -> str | None:
+        for b in self.blocks:
+            if isinstance(b, Heading):
+                return b.text
+        return None
+
+    def body_char_count(self) -> int:
+        """Count text characters in Paragraph and ListBlock blocks (typewriter budget)."""
+        total = 0
+        for b in self.blocks:
+            if isinstance(b, Paragraph):
+                total += sum(len(r.text) for r in b.runs)
+            elif isinstance(b, ListBlock):
+                for item in b.items:
+                    total += sum(len(r.text) for r in item)
+        return max(1, total)
