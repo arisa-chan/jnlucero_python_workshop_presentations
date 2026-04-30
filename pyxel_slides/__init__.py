@@ -1,8 +1,8 @@
 """pyxel-slides: a Markdown-driven retro presentation engine on top of Pyxel."""
 
-from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, TextRun, plain
+from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
 from .parser import parse_markdown
-from .theme import Theme, GAMEBOY
+from .theme import Theme, GAMEBOY, VSCODE_LIGHT
 from .app import SlidesApp
 from .assets.fonts import FontSet, ensure_fonts
 from .highlight import tokenize_lines, role_to_color, pygments_available
@@ -18,12 +18,17 @@ __all__ = [
     "CodeBlock",
     "ImageBlock",
     "MathBlock",
+    "SpriteBlock",
     "TextRun",
     "plain",
     "parse_markdown",
     "Theme",
     "GAMEBOY",
+    "VSCODE_LIGHT",
     "SlidesApp",
+    "SlideRenderer",
+    "draw_run_line",
+    "_hit_test",
     "FontSet",
     "ensure_fonts",
     "tokenize_lines",
@@ -36,4 +41,4 @@ __all__ = [
     "matplotlib_available",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.9.0"

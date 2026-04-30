@@ -139,17 +139,28 @@ def tokenize_lines(code: str, language: str) -> List[List[Tuple[str, int]]]:
 def role_to_color(role: int, theme: object) -> int:
     """Map a ROLE_* constant to a Pyxel palette index using *theme* attributes.
 
-    The mapping targets a dark code-panel background (``theme.fg``):
+    Uses the extended ``eff_*`` colour properties on the theme so each
+    syntax role gets a dedicated colour (e.g. keyword blue, string red).
+    Falls back to the basic four roles for simple/custom themes.
 
-    * ``ROLE_DEFAULT`` / ``ROLE_BUILTIN`` → ``theme.bg``   (brightest — normal text)
-    * ``ROLE_KEYWORD`` / ``ROLE_NUMBER``  → ``theme.muted`` (light green — stands out)
-    * ``ROLE_STRING``  / ``ROLE_COMMENT`` → ``theme.accent`` (dim green — secondary)
+    * ``ROLE_KEYWORD``              → ``theme.eff_keyword``
+    * ``ROLE_STRING``               → ``theme.eff_string``
+    * ``ROLE_COMMENT``              → ``theme.eff_comment``
+    * ``ROLE_NUMBER``               → ``theme.eff_number``
+    * ``ROLE_BUILTIN``              → ``theme.eff_builtin``
+    * ``ROLE_DEFAULT`` (and others) → ``theme.eff_code_fg``
     """
-    if role in (ROLE_KEYWORD, ROLE_NUMBER):
-        return theme.muted  # type: ignore[attr-defined]
-    if role in (ROLE_STRING, ROLE_COMMENT):
-        return theme.accent  # type: ignore[attr-defined]
-    # ROLE_DEFAULT, ROLE_BUILTIN, anything else
+    if role == ROLE_KEYWORD:
+        return theme.eff_keyword   # type: ignore[attr-defined]
+    if role == ROLE_STRING:
+        return theme.eff_string    # type: ignore[attr-defined]
+    if role == ROLE_COMMENT:
+        return theme.eff_comment   # type: ignore[attr-defined]
+    if role == ROLE_NUMBER:
+        return theme.eff_number    # type: ignore[attr-defined]
+    if role == ROLE_BUILTIN:
+        return theme.eff_builtin   # type: ignore[attr-defined]
+    return theme.eff_code_fg       # type: ignore[attr-defined]
     return theme.bg  # type: ignore[attr-defined]
 
 

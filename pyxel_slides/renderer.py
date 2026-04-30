@@ -1,16 +1,12 @@
-"""Slide renderer (Phase 3).
+"""Slide renderer.
 
-New in Phase 3:
-  - Pygments syntax highlighting inside code panels.  Each token span is
-    drawn with a role-mapped GameBoy palette colour (keywords/numbers →
-    muted, strings/comments → accent, identifiers → bg).
-  - Graceful fallback to plain text when Pygments is absent.
+Phase 6: clickable hyperlinks.
+  - draw_run_line records hit-areas (x, y, w, h, url) in a link_areas list.
+  - SlideRenderer.links is rebuilt on every draw() call.
+  - _hit_test(links, mx, my) returns the URL under the mouse, or None.
 
-Phase 2 features retained:
-  - FontSet: Spleen BDF fonts (body/heading_sm/heading_md/heading_lg/mono).
-  - Styled TextRun rendering: bold, italic, inline-code pill, links.
-  - Word-wrap respects inline run boundaries.
-  - Typewriter reveal: `reveal_budget` (Paragraphs/ListBlocks only).
+Phase 3 (retained): Pygments syntax highlighting.
+Phase 2 (retained): BDF fonts, styled TextRun rendering, typewriter reveal.
 """
 
 from __future__ import annotations
@@ -18,12 +14,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+# (x, y, width, height, url) — pixel bounding box of a rendered hyperlink.
+LinkArea = Tuple[int, int, int, int, str]
+
 import pyxel
 
 from .assets.fonts import FontSet
 from .dither import dither_to_palette, fit_dimensions, pillow_available
 from .highlight import role_to_color, tokenize_lines
-from .ir import CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, TextRun, plain
+from .ir import CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
 from .mathtext import matplotlib_available, render_math
 from .theme import Theme
 
@@ -43,6 +42,34 @@ GLYPH_H = BUILTIN_GLYPH_H
 # --------------------------------------------------------------------------- #
 # Low-level helpers
 # --------------------------------------------------------------------------- #
+
+def _draw_italic(x: int, y: int, text: str, col: int, font: Optional[Any],
+                 glyph_w: int, glyph_h: int, bg_col: int) -> None:
+    """Draw text with a per-row horizontal shear that simulates italic.
+
+    The top row is shifted right by ``slant`` pixels; the bottom row is at
+    the normal position.  Each intermediate row is shifted proportionally.
+    This works for any font size because we read back rendered pixels with
+    ``pyxel.screen.pget()`` and redraw them with the shear applied.
+    """
+    slant = max(1, glyph_h // 4)  # 2px for 8px tall, 4px for 16px tall
+    # First, draw the text normally so the pixels are on screen.
+    _draw_text(x, y, text, col, font)
+    tw = _text_width(text, font, glyph_w)
+    # Now shear the rendered pixels row by row (top → max shift, bottom → 0).
+    for row in range(glyph_h):
+        shift = int(round(slant * (glyph_h - 1 - row) / max(1, glyph_h - 1)))
+        if shift == 0:
+            continue
+        # Read the rendered row.
+        pixels = [pyxel.screen.pget(x + ci, y + row) for ci in range(tw)]
+        # Erase the original row (and the area the shift may reveal).
+        for ci in range(tw + shift):
+            pyxel.pset(x + ci, y + row, bg_col)
+        # Write back with the horizontal shift.
+        for ci, p in enumerate(pixels):
+            pyxel.pset(x + ci + shift, y + row, p)
+
 
 def _draw_text(x: int, y: int, s: str, col: int, font: Optional[Any] = None) -> None:
     """Draw text, using a custom pyxel.Font when provided."""
@@ -179,6 +206,18 @@ def wrap_runs(
 # Single-line styled run drawing  (respects typewriter budget)
 # --------------------------------------------------------------------------- #
 
+def _hit_test(
+    links: List[LinkArea],
+    mx: int,
+    my: int,
+) -> Optional[str]:
+    """Return the URL of the first link whose rect contains (mx, my), or None."""
+    for x, y, w, h, url in links:
+        if x <= mx < x + w and y <= my < y + h:
+            return url
+    return None
+
+
 def draw_run_line(
     line_runs: List[TextRun],
     x: int,
@@ -188,15 +227,17 @@ def draw_run_line(
     glyph_w: int,
     glyph_h: int,
     budget: int,   # chars remaining; -1 = unlimited
+    link_areas: Optional[List[LinkArea]] = None,
 ) -> Tuple[int, int]:
     """Draw one line of styled runs left-to-right.
 
     Returns (next_x_after_last_run, remaining_budget).
     Bold: text drawn at x and x+1 (fake-bold pixel doubling).
-    Italic: accent colour.
-    Highlight: accent rect behind, bg-coloured text.
-    Code: fg rect behind (dark pill), bg-coloured text.
-    Link: accent colour + 1-px underline below glyph.
+    Italic: muted colour.
+    Highlight: eff_highlight_bg rect + eff_highlight_fg text.
+    Code: eff_code_pill rect + eff_code_pill_fg text.
+    Link: eff_link colour + 1-px underline below glyph.
+         Appends (x, y, w, h, url) to link_areas when provided.
     """
     cx = x
     for run in line_runs:
@@ -215,30 +256,34 @@ def draw_run_line(
         # --- Choose colour and optional background rect ---
         if run.math:
             # Inline math: show LaTeX source in muted colour.
-            # Full inline-image rendering is deferred to a later phase.
             col = theme.muted
         elif run.highlight:
-            pyxel.rect(cx, y - 1, w, glyph_h + 2, theme.accent)
-            col = theme.bg
+            pyxel.rect(cx, y - 1, w, glyph_h + 2, theme.eff_highlight_bg)
+            col = theme.eff_highlight_fg
         elif run.code:
-            pyxel.rect(cx - 1, y - 1, w + 2, glyph_h + 2, theme.fg)
-            col = theme.bg
+            pyxel.rect(cx - 1, y - 1, w + 2, glyph_h + 2, theme.eff_code_pill)
+            col = theme.eff_code_pill_fg
         elif run.url:
-            col = theme.accent
+            col = theme.eff_link
         elif run.italic:
-            col = theme.accent   # lighter shade signals italics
+            col = theme.fg  # full colour; shearing provides the visual lean
         else:
             col = theme.fg
 
         # --- Draw text ---
-        _draw_text(cx, y, text, col, font)
+        if run.italic and not run.code and not run.math:
+            _draw_italic(cx, y, text, col, font, glyph_w, glyph_h, theme.bg)
+        else:
+            _draw_text(cx, y, text, col, font)
 
         if run.bold:
             # Fake-bold: draw again shifted one pixel right.
             _draw_text(cx + 1, y, text, col, font)
 
         if run.url:
-            pyxel.rect(cx, y + glyph_h, w, 1, theme.accent)
+            pyxel.rect(cx, y + glyph_h, w, 1, theme.eff_link)
+            if link_areas is not None:
+                link_areas.append((cx, y, w, glyph_h, run.url))
 
         cx += w
         if budget == 0:
@@ -266,11 +311,13 @@ class SlideRenderer:
         self.fonts = fonts or FontSet.fallback()
         self.base_dir = base_dir  # used to resolve relative image paths
         self._image_cache: Dict[str, Optional[List[List[int]]]] = {}
+        self.links: List[LinkArea] = []  # populated during each draw()
 
     # --- public ----------------------------------------------------------- #
 
     def draw(self, slide: Slide, reveal_budget: int = -1) -> None:
         """Draw the slide. reveal_budget = -1 means show everything."""
+        self.links = []  # reset hit-areas for this frame
         pyxel.cls(self.theme.bg)
         if slide.is_section_title:
             self._draw_section_title(slide)
@@ -303,7 +350,7 @@ class SlideRenderer:
             lgh = BUILTIN_GLYPH_H * scale
             x = (self.width - title_w) // 2
             y = (self.height - lgh) // 2
-            _draw_text_scaled_builtin(x, y, title, self.theme.fg, scale)
+            _draw_text_scaled_builtin(x, y, title, self.theme.eff_heading, scale)
         else:
             if title_w > self.width - 2 * self.theme.padding:
                 # Truncate with ellipsis.
@@ -314,7 +361,7 @@ class SlideRenderer:
                 title_w = _text_width(title, lg_font, lgw)
             x = (self.width - title_w) // 2
             y = (self.height - lgh) // 2
-            _draw_text(x, y, title, self.theme.fg, lg_font)
+            _draw_text(x, y, title, self.theme.eff_heading, lg_font)
 
         if subtitle_runs:
             md_font, mdw, mdh = f.heading_md, f.heading_md_w, f.heading_md_h
@@ -345,6 +392,8 @@ class SlideRenderer:
                 y = self._draw_imageblock(block, x, y, max_w)
             elif isinstance(block, MathBlock):
                 y = self._draw_mathblock(block, x, y, max_w)
+            elif isinstance(block, SpriteBlock):
+                y = self._draw_spriteblock(block, x, y, max_w)
 
             if y >= self.height - pad:
                 break  # Overflow clipping (scroll / auto-split in a later phase).
@@ -355,24 +404,45 @@ class SlideRenderer:
         f = self.fonts
         if h.level == 1:
             font, fw, fh = f.heading_lg, f.heading_lg_w, f.heading_lg_h
-            col = self.theme.fg
-            # Center H1 when it appears inside a content slide.
-            tw = _text_width(h.text, font, fw)
+            col = self.theme.eff_heading
             if font is None:
+                # Built-in font: pixel-double and wrap at max_w.
                 scale = 3
-                tw = len(h.text) * BUILTIN_GLYPH_W * scale
-                fh = BUILTIN_GLYPH_H * scale
-                x_head = (self.width - tw) // 2
-                _draw_text_scaled_builtin(x_head, y, h.text, col, scale)
+                max_chars = max(1, max_w // (BUILTIN_GLYPH_W * scale))
+                words = h.text.split()
+                lines: list[str] = []
+                cur = ""
+                for word in words:
+                    candidate = (cur + " " + word).strip()
+                    if len(candidate) <= max_chars:
+                        cur = candidate
+                    else:
+                        if cur:
+                            lines.append(cur)
+                        cur = word
+                if cur:
+                    lines.append(cur)
+                lh = BUILTIN_GLYPH_H * scale
+                for line in lines:
+                    lw = len(line) * BUILTIN_GLYPH_W * scale
+                    x_head = (self.width - lw) // 2
+                    _draw_text_scaled_builtin(x_head, y, line, col, scale)
+                    y += lh + self.theme.line_spacing
             else:
-                x_head = max(x, (self.width - tw) // 2)
-                _draw_text(x_head, y, h.text, col, font)
-            y += fh + self.theme.line_spacing + 4
+                # BDF font: use wrap_runs to centre each wrapped line.
+                lines_runs = wrap_runs(plain(h.text), max_w, font, fw)
+                for line_runs in lines_runs:
+                    line_text = "".join(r.text for r in line_runs)
+                    lw = _text_width(line_text, font, fw)
+                    x_head = max(x, (self.width - lw) // 2)
+                    _draw_text(x_head, y, line_text, col, font)
+                    y += fh + self.theme.line_spacing
+            y += 4
             return y
 
         elif h.level == 2:
             font, fw, fh = f.heading_md, f.heading_md_w, f.heading_md_h
-            col = self.theme.fg
+            col = self.theme.accent
         elif h.level == 3:
             font, fw, fh = f.heading_sm, f.heading_sm_w, f.heading_sm_h
             col = self.theme.accent
@@ -392,7 +462,7 @@ class SlideRenderer:
                     cx += _text_width(run.text, font, fw)
             y += fh + self.theme.line_spacing
 
-        if h.level in (2, 3):
+        if h.level == 2:
             pyxel.rect(x, y, max_w, 1, self.theme.accent)
             y += 5
         else:
@@ -418,6 +488,7 @@ class SlideRenderer:
                 line_runs, x, y,
                 self.theme, font, fw, fh,
                 budget,
+                link_areas=self.links,
             )
             y += fh + self.theme.line_spacing
 
@@ -450,6 +521,7 @@ class SlideRenderer:
                     line_runs, indent, y,
                     self.theme, font, fw, fh,
                     budget,
+                    link_areas=self.links,
                 )
                 y += fh + self.theme.line_spacing
 
@@ -487,7 +559,10 @@ class SlideRenderer:
                     nat_w, nat_h = max_w, max_img_h
 
                 tw, th = fit_dimensions(nat_w, nat_h, max_w, max_img_h)
-                self._image_cache[cache_key] = dither_to_palette(full_path, tw, th)
+                self._image_cache[cache_key] = dither_to_palette(
+                    full_path, tw, th,
+                    palette_rgb=self.theme.palette_as_rgb,
+                )
             else:
                 self._image_cache[cache_key] = None  # placeholder
 
@@ -496,9 +571,9 @@ class SlideRenderer:
         if pixels is None:
             # Placeholder: dark rect with alt text.
             ph_h = self.fonts.body_h * 2 + 4
-            pyxel.rect(x, y, max_w, ph_h, self.theme.fg)
+            pyxel.rect(x, y, max_w, ph_h, self.theme.eff_panel_bg)
             alt_label = (f"[{ib.alt}]" if ib.alt else "[image]")[:max_w // self.fonts.body_w]
-            _draw_text(x + 4, y + 4, alt_label, self.theme.bg, self.fonts.body)
+            _draw_text(x + 4, y + 4, alt_label, self.theme.eff_code_fg, self.fonts.body)
             return y + ph_h + 4
 
         img_h = len(pixels)
@@ -527,12 +602,13 @@ class SlideRenderer:
         expression fails to render.
         """
         cache_key = f"math:{mb.expr}"
-        max_math_h = self.height // 3  # math should not eat the whole slide
+        max_math_h = self.height // 2  # allow up to half the slide height for equations
 
         if cache_key not in self._image_cache:
             if matplotlib_available():
                 self._image_cache[cache_key] = render_math(
-                    mb.expr, max_w, max_math_h
+                    mb.expr, max_w, max_math_h,
+                    palette_rgb=self.theme.palette_as_rgb,
                 )
             else:
                 self._image_cache[cache_key] = None
@@ -546,11 +622,11 @@ class SlideRenderer:
             display = f"$$ {mb.expr} $$"
             lines = wrap_runs(plain(display), max_w - 8, font, fw)
             ph_h = fh * len(lines) + 8
-            pyxel.rect(x, y, max_w, ph_h, self.theme.fg)
+            pyxel.rect(x, y, max_w, ph_h, self.theme.eff_panel_bg)
             for li, line_runs in enumerate(lines):
                 cx = x + 4
                 for run in line_runs:
-                    _draw_text(cx, y + 4 + li * (fh + 1), run.text, self.theme.muted, font)
+                    _draw_text(cx, y + 4 + li * (fh + 1), run.text, self.theme.eff_code_fg, font)
                     cx += _text_width(run.text, font, fw)
             return y + ph_h + 4
 
@@ -602,7 +678,7 @@ class SlideRenderer:
         display_lines = [_truncate(spans) for spans in token_lines]
 
         block_h = line_h * len(display_lines) + pad * 2
-        pyxel.rect(x, y, max_w, block_h, self.theme.fg)
+        pyxel.rect(x, y, max_w, block_h, self.theme.eff_panel_bg)
 
         for i, spans in enumerate(display_lines):
             cx = x + pad
@@ -613,6 +689,49 @@ class SlideRenderer:
                 cx += _text_width(text, font, fw)
 
         return y + block_h + 4
+
+    def _draw_spriteblock(self, sb: SpriteBlock, x: int, y: int, max_w: int) -> int:
+        """Draw a Pyxel image-bank sprite using ``pyxel.blt()``.
+
+        Supports integer/float scaling and automatic frame animation.
+        The sprite is centred horizontally within the slide column.
+        If ``blt`` raises (e.g. invalid bank index), a placeholder is shown.
+
+        Animation: a horizontal strip of ``frames`` frames, each ``frame_w``
+        pixels wide, is cycled at ``anim_fps`` frames-per-second (relative to
+        the Pyxel default of 30 fps).
+        """
+        fw = sb.frame_w if sb.frame_w >= 0 else sb.w
+
+        # Compute current animation frame (assumes ~30 fps app loop).
+        period = max(1, 30 // max(1, sb.anim_fps))
+        frame_idx = (pyxel.frame_count // period) % max(1, sb.frames)
+        src_u = sb.u + frame_idx * fw
+
+        # Pixel size of the drawn sprite.
+        scale = float(sb.scale)
+        drawn_w = int(fw * scale)
+        drawn_h = int(sb.h * scale)
+
+        # Centre horizontally.
+        sprite_x = x + max(0, (max_w - drawn_w) // 2)
+        sprite_y = y
+
+        colkey = sb.colkey if sb.colkey >= 0 else None
+
+        try:
+            pyxel.blt(sprite_x, sprite_y, sb.img, src_u, sb.v, fw, sb.h,
+                      colkey, scale=scale)
+        except Exception:  # noqa: BLE001
+            # Fallback: placeholder panel with descriptor text.
+            label = f"[sprite img={sb.img} {fw}\u00d7{sb.h}]"
+            ph_h = self.fonts.body_h * 2 + 4
+            pyxel.rect(x, y, max_w, ph_h, self.theme.eff_panel_bg)
+            _draw_text(x + 4, y + 4, label[:max_w // self.fonts.body_w],
+                       self.theme.eff_code_fg, self.fonts.body)
+            return y + ph_h + 4
+
+        return y + drawn_h + 4
 
 
 # --------------------------------------------------------------------------- #

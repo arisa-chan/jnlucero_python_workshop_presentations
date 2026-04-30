@@ -20,7 +20,37 @@ from typing import List, Optional
 from markdown_it import MarkdownIt
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 
-from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, TextRun
+from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun
+
+
+# --------------------------------------------------------------------------- #
+# SpriteBlock key=value parser
+# --------------------------------------------------------------------------- #
+
+def _parse_sprite_block(content: str) -> SpriteBlock:
+    """Parse ``key=value`` lines from a ``pyxel-sprite`` fence body.
+
+    Unknown keys are silently ignored.  Values that cannot be coerced to
+    the expected type are also silently ignored (field default is kept).
+    """
+    fields: dict = {}
+    for raw in content.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+        try:
+            if key in ("img", "u", "v", "w", "h", "colkey", "frames", "frame_w", "anim_fps"):
+                fields[key] = int(val)
+            elif key == "scale":
+                fields[key] = float(val)
+        except ValueError:
+            pass  # ignore bad values
+    return SpriteBlock(**fields)
 
 
 # --------------------------------------------------------------------------- #
@@ -197,9 +227,13 @@ def parse_markdown(source: str) -> List[Slide]:
             continue
 
         if ttype == "fence":
-            current.blocks.append(
-                CodeBlock(code=tok.content.rstrip("\n"), language=(tok.info or "").strip())
-            )
+            lang = (tok.info or "").strip()
+            if lang == "pyxel-sprite":
+                current.blocks.append(_parse_sprite_block(tok.content))
+            else:
+                current.blocks.append(
+                    CodeBlock(code=tok.content.rstrip("\n"), language=lang)
+                )
             i += 1
             continue
 

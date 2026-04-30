@@ -3,6 +3,7 @@
 Phase 2: TextRun inline styles, typed Paragraph/ListBlock.
 Phase 4: ImageBlock for ``![alt](path)`` blocks.
 Phase 5: MathBlock for ``$$...$$`` display math; TextRun.math for ``$...$`` inline math.
+Phase 7: SpriteBlock for ``pyxel-sprite`` fenced code blocks.
 """
 
 from __future__ import annotations
@@ -77,7 +78,42 @@ class MathBlock:
     expr: str   # raw LaTeX expression (without surrounding dollar signs)
 
 
-Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock]
+@dataclass
+class SpriteBlock:
+    """A Pyxel image-bank sprite rendered via ``pyxel.blt()``.
+
+    Parsed from a fenced code block whose language tag is ``pyxel-sprite``.
+    The block body contains ``key=value`` lines (unrecognised lines are
+    silently ignored).
+
+    Example::
+
+        ```pyxel-sprite
+        img=0
+        u=0
+        v=0
+        w=16
+        h=16
+        scale=2
+        colkey=0
+        frames=4
+        frame_w=16
+        anim_fps=8
+        ```
+    """
+    img: int = 0         # image bank index (0-2)
+    u: int = 0           # source x in bank (pixels)
+    v: int = 0           # source y in bank (pixels)
+    w: int = 16          # source width  (pixels, before scale)
+    h: int = 16          # source height (pixels, before scale)
+    scale: float = 1.0   # draw scale factor passed to pyxel.blt()
+    colkey: int = -1     # transparent colour index (-1 = no transparency)
+    frames: int = 1      # number of animation frames (horizontal strip)
+    frame_w: int = -1    # width of one frame (-1 → same as w)
+    anim_fps: int = 8    # animation speed (frames per second)
+
+
+Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, SpriteBlock]
 
 
 @dataclass

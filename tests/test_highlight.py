@@ -58,18 +58,25 @@ class _FakeTheme:
     fg = 11
     accent = 12
     muted = 13
+    # Extended syntax colour properties expected by role_to_color
+    eff_keyword  = 20
+    eff_string   = 21
+    eff_comment  = 22
+    eff_number   = 23
+    eff_builtin  = 24
+    eff_code_fg  = 25
 
 
 _THEME = _FakeTheme()
 
 
 @pytest.mark.parametrize("role,expected_attr", [
-    (ROLE_DEFAULT, "bg"),
-    (ROLE_BUILTIN, "bg"),
-    (ROLE_KEYWORD, "muted"),
-    (ROLE_NUMBER,  "muted"),
-    (ROLE_STRING,  "accent"),
-    (ROLE_COMMENT, "accent"),
+    (ROLE_DEFAULT, "eff_code_fg"),
+    (ROLE_BUILTIN, "eff_builtin"),
+    (ROLE_KEYWORD, "eff_keyword"),
+    (ROLE_NUMBER,  "eff_number"),
+    (ROLE_STRING,  "eff_string"),
+    (ROLE_COMMENT, "eff_comment"),
 ])
 def test_role_to_color(role, expected_attr):
     assert role_to_color(role, _THEME) == getattr(_THEME, expected_attr)

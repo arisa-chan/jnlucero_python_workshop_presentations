@@ -1,7 +1,25 @@
-"""Pyxel application: window, input, slide navigation, typewriter effect."""
+"""Pyxel application: window, input, slide navigation, typewriter effect.
+
+Phase 6: clickable hyperlinks.
+  - Mouse is enabled via pyxel.mouse(True).
+  - Left-click on a rendered link opens it in the default browser.
+  - Hovered link URL is shown in the bottom status bar.
+
+Phase 8: hot-reload + theme CLI flag.
+  - When hot_reload=True (default), the mtime of the .md file is checked
+    once per second; on change the deck is re-parsed and re-rendered
+    automatically without user interaction.
+
+Phase 9: overview mode, presenter timer, export-to-PNG.
+  - O key opens a slide-thumbnail grid; Escape or click to return / jump.
+  - MM:SS presenter timer shown in the chrome; T resets it.
+  - --export-dir PATH renders every slide to slide_NNN.png via Pillow.
+"""
 
 from __future__ import annotations
 
+import time
+import webbrowser
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,11 +28,20 @@ import pyxel
 from .assets.fonts import FontSet, ensure_fonts
 from .ir import Slide
 from .parser import parse_markdown
-from .renderer import BUILTIN_GLYPH_H, BUILTIN_GLYPH_W, SlideRenderer
-from .theme import GAMEBOY, Theme
+from .renderer import BUILTIN_GLYPH_H, BUILTIN_GLYPH_W, SlideRenderer, _hit_test
+from .theme import GAMEBOY, VSCODE_LIGHT, Theme
 
 # Characters revealed per frame for the typewriter effect.
 _REVEAL_SPEED = 4
+
+# Overview grid layout constants.
+_OV_COLS = 4
+_OV_CARD_W = 88
+_OV_CARD_H = 52
+_OV_GAP = 4
+_OV_MARGIN_X = 4
+_OV_MARGIN_Y = 4
+_OV_LABEL_H = 8  # pixels reserved for the overview header label
 
 
 class SlidesApp:
@@ -28,13 +55,16 @@ class SlidesApp:
     def __init__(
         self,
         markdown_path: Path,
-        theme: Theme = GAMEBOY,
+        theme: Theme = VSCODE_LIGHT,
         width: int = 384,
         height: int = 216,
         fps: int = 30,
         title: str = "pyxel-slides",
         pyxres_path: Optional[Path] = None,
         download_fonts: bool = True,
+        hot_reload: bool = True,
+        export_dir: Optional[Path] = None,
+        typewriter: bool = False,
     ) -> None:
         self.markdown_path = Path(markdown_path)
         self.theme = theme
@@ -44,11 +74,22 @@ class SlidesApp:
         self.title = title
         self.pyxres_path = pyxres_path
         self.download_fonts = download_fonts
+        self.hot_reload = hot_reload
+        self.export_dir = Path(export_dir) if export_dir else None
+        self.typewriter = typewriter
 
         self.slides: List[Slide] = []
         self.index: int = 0
         self._mtime: float = 0.0
         self._reveal_chars: int = -1  # -1 = show all (typewriter disabled until first load)
+        # Hot-reload: check mtime every _HOT_RELOAD_INTERVAL frames.
+        self._hot_reload_counter: int = 0
+        # Phase 9 state.
+        self._overview: bool = False
+        self._ov_scroll_row: int = 0
+        self._timer_start: float = 0.0
+        self._exporting: bool = False
+        self._export_frame: int = 0
 
     # --- lifecycle -------------------------------------------------------- #
 
@@ -61,6 +102,7 @@ class SlidesApp:
             ensure_fonts(quiet=False)
 
         pyxel.init(self.width, self.height, title=self.title, fps=self.fps)
+        pyxel.mouse(True)  # enable mouse for clickable links
         self._apply_palette()
 
         if self.pyxres_path and self.pyxres_path.exists():
@@ -76,20 +118,69 @@ class SlidesApp:
             base_dir=self.markdown_path.parent,
         )
 
-        # Start typewriter from slide 0.
-        self._reveal_chars = 0
+        # Start typewriter from slide 0 (or show all immediately if disabled).
+        self._reveal_chars = 0 if self.typewriter else -1
+
+        # Phase 9: presenter timer starts now.
+        self._timer_start = time.time()
+
+        # Phase 9: export mode — render each slide to PNG then quit.
+        if self.export_dir:
+            self._exporting = True
+            self._export_frame = 0
+            self.export_dir.mkdir(parents=True, exist_ok=True)
+            print(f"[pyxel-slides] Export mode → {self.export_dir}")
 
         pyxel.run(self.update, self.draw)
 
     # --- input ------------------------------------------------------------ #
 
     def update(self) -> None:
-        if pyxel.btnp(pyxel.KEY_Q) or pyxel.btnp(pyxel.KEY_ESCAPE):
+        # Q always quits.
+        if pyxel.btnp(pyxel.KEY_Q):
             pyxel.quit()
             return
 
-        # --- Typewriter advance ---
-        if self._reveal_chars >= 0 and self.slides:
+        # --- Export mode: just wait until all frames are saved, then quit ---
+        if self._exporting:
+            if self._export_frame >= len(self.slides):
+                pyxel.quit()
+            return
+
+        # Escape: close overview if open, otherwise quit.
+        if pyxel.btnp(pyxel.KEY_ESCAPE):
+            if self._overview:
+                self._overview = False
+            else:
+                pyxel.quit()
+            return
+
+        # --- Overview mode input ---
+        if self._overview:
+            if pyxel.btnp(pyxel.KEY_UP):
+                self._ov_scroll_row = max(0, self._ov_scroll_row - 1)
+            elif pyxel.btnp(pyxel.KEY_DOWN):
+                max_row = max(0, (len(self.slides) - 1) // _OV_COLS)
+                self._ov_scroll_row = min(max_row, self._ov_scroll_row + 1)
+            elif pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                idx = self._overview_card_at(pyxel.mouse_x, pyxel.mouse_y)
+                if idx >= 0:
+                    self._goto(idx)
+                    self._overview = False
+            return
+
+        # O: open overview, auto-scroll to show the current slide's row.
+        if pyxel.btnp(pyxel.KEY_O):
+            self._ov_scroll_row = self.index // _OV_COLS
+            self._overview = True
+            return
+
+        # T: reset presenter timer.
+        if pyxel.btnp(pyxel.KEY_T):
+            self._timer_start = time.time()
+
+        # --- Typewriter advance (only when enabled) ---
+        if self.typewriter and self._reveal_chars >= 0 and self.slides:
             target = self.slides[self.index].body_char_count()
             if self._reveal_chars < target:
                 self._reveal_chars = min(target, self._reveal_chars + _REVEAL_SPEED)
@@ -104,7 +195,7 @@ class SlidesApp:
         if advance_keys:
             if self.slides:
                 target = self.slides[self.index].body_char_count()
-                if self._reveal_chars >= 0 and self._reveal_chars < target:
+                if self.typewriter and self._reveal_chars >= 0 and self._reveal_chars < target:
                     # Skip reveal: show all text on this slide.
                     self._reveal_chars = target
                 else:
@@ -119,10 +210,42 @@ class SlidesApp:
         elif pyxel.btnp(pyxel.KEY_R):
             self._load_markdown()
 
+        # --- Hot-reload: check mtime periodically ---
+        if self.hot_reload:
+            self._hot_reload_counter += 1
+            if self._hot_reload_counter >= self.fps:  # once per second
+                self._hot_reload_counter = 0
+                self._check_hot_reload()
+
+        # --- Mouse: open links on left click ---
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT) and hasattr(self, "renderer"):
+            url = _hit_test(self.renderer.links, pyxel.mouse_x, pyxel.mouse_y)
+            if url:
+                webbrowser.open(url)
+
     def draw(self) -> None:
+        # --- Export mode: render slide, save PNG, advance ---
+        if self._exporting:
+            if self._export_frame < len(self.slides):
+                slide = self.slides[self._export_frame]
+                self.renderer.draw(slide, reveal_budget=-1)
+                self._try_save_frame()
+                self._export_frame += 1
+                if self._export_frame >= len(self.slides):
+                    n = len(self.slides)
+                    print(f"[pyxel-slides] Export complete: {n} slide(s) → {self.export_dir}")
+            else:
+                pyxel.cls(self.theme.bg)
+            return
+
         if not self.slides:
             pyxel.cls(self.theme.bg)
             pyxel.text(8, 8, "No slides found.", self.theme.fg)
+            return
+
+        # --- Overview mode ---
+        if self._overview:
+            self._draw_overview()
             return
 
         slide = self.slides[self.index]
@@ -137,7 +260,7 @@ class SlidesApp:
         old = self.index
         self.index = max(0, min(len(self.slides) - 1, i))
         if self.index != old:
-            self._reveal_chars = 0  # reset typewriter when changing slides
+            self._reveal_chars = 0 if self.typewriter else -1  # reset on slide change
 
     def _load_markdown(self) -> None:
         text = self.markdown_path.read_text(encoding="utf-8")
@@ -148,15 +271,43 @@ class SlidesApp:
             self._mtime = 0.0
         if self.index >= len(self.slides):
             self.index = max(0, len(self.slides) - 1)
-        self._reveal_chars = 0  # restart typewriter after reload
+        self._reveal_chars = 0 if self.typewriter else -1  # restart typewriter after reload
         print(f"[pyxel-slides] Loaded {len(self.slides)} slide(s) from {self.markdown_path}")
+
+    def _check_hot_reload(self) -> None:
+        """Reload the deck if the source file has been modified on disk."""
+        try:
+            new_mtime = self.markdown_path.stat().st_mtime
+        except OSError:
+            return
+        if new_mtime != self._mtime:
+            print("[pyxel-slides] Source changed — hot-reloading…")
+            self._load_markdown()
 
     def _apply_palette(self) -> None:
         for i, rgb in enumerate(self.theme.palette[:16]):
             pyxel.colors[i] = rgb
 
     def _draw_chrome(self) -> None:
-        """Draw slide counter + progress bar using built-in font (always visible)."""
+        """Draw slide counter, progress bar, presenter timer, and hovered-link URL indicator."""
+        # --- Presenter timer (bottom-left) ---
+        elapsed = time.time() - self._timer_start
+        timer_str = self._format_time(elapsed)
+        pyxel.text(
+            4,
+            self.height - BUILTIN_GLYPH_H - 2,
+            timer_str,
+            self.theme.muted,
+        )
+
+        # --- Hovered link URL (bottom-left, one row above counter) ---
+        if hasattr(self, "renderer") and self.renderer.links:
+            url = _hit_test(self.renderer.links, pyxel.mouse_x, pyxel.mouse_y)
+            if url:
+                max_chars = (self.width - 8) // BUILTIN_GLYPH_W
+                display = url if len(url) <= max_chars else url[:max_chars - 3] + "..."
+                url_y = self.height - BUILTIN_GLYPH_H * 2 - 4
+                pyxel.text(4, url_y, display, self.theme.eff_link)
         label = f"{self.index + 1}/{len(self.slides)}"
         pyxel.text(
             self.width - len(label) * BUILTIN_GLYPH_W - 4,
@@ -169,3 +320,94 @@ class SlidesApp:
             filled = int(bar_w * (self.index + 1) / len(self.slides))
             pyxel.rect(4, self.height - 2, bar_w, 1, self.theme.muted)
             pyxel.rect(4, self.height - 2, filled, 1, self.theme.accent)
+
+    # --- Phase 9 helpers -------------------------------------------------- #
+
+    @staticmethod
+    def _format_time(elapsed: float) -> str:
+        """Format *elapsed* seconds as ``MM:SS``."""
+        total = max(0, int(elapsed))
+        return f"{total // 60:02d}:{total % 60:02d}"
+
+    def _overview_card_at(self, mx: int, my: int) -> int:
+        """Return the slide index of the overview card under (mx, my), or -1.
+
+        Accounts for the current scroll position (_ov_scroll_row) and the gap
+        pixels between cards so that clicks on gaps return -1.
+        """
+        ov_top = _OV_MARGIN_Y + _OV_LABEL_H
+        col = (mx - _OV_MARGIN_X) // (_OV_CARD_W + _OV_GAP)
+        row_rel = (my - ov_top) // (_OV_CARD_H + _OV_GAP)
+        if col < 0 or col >= _OV_COLS or row_rel < 0:
+            return -1
+        # Verify the click is inside the card body, not in the inter-card gap.
+        card_x = _OV_MARGIN_X + col * (_OV_CARD_W + _OV_GAP)
+        card_y = ov_top + row_rel * (_OV_CARD_H + _OV_GAP)
+        if mx < card_x or mx >= card_x + _OV_CARD_W:
+            return -1
+        if my < card_y or my >= card_y + _OV_CARD_H:
+            return -1
+        idx = (row_rel + self._ov_scroll_row) * _OV_COLS + col
+        if idx < 0 or idx >= len(self.slides):
+            return -1
+        return idx
+
+    def _draw_overview(self) -> None:
+        """Render the slide-thumbnail overview grid."""
+        pyxel.cls(self.theme.eff_panel_bg)
+        hint = "[O/Esc] close  [↑↓] scroll  click slide to jump"
+        pyxel.text(_OV_MARGIN_X, _OV_MARGIN_Y, hint, self.theme.muted)
+
+        ov_top = _OV_MARGIN_Y + _OV_LABEL_H
+        first_idx = self._ov_scroll_row * _OV_COLS
+        for slot, slide_idx in enumerate(range(first_idx, len(self.slides))):
+            col = slot % _OV_COLS
+            row = slot // _OV_COLS
+            cx = _OV_MARGIN_X + col * (_OV_CARD_W + _OV_GAP)
+            cy = ov_top + row * (_OV_CARD_H + _OV_GAP)
+            if cy + _OV_CARD_H > self.height:
+                break  # no more vertical space
+
+            is_cur = slide_idx == self.index
+            border_col = self.theme.accent if is_cur else self.theme.muted
+            pyxel.rect(cx, cy, _OV_CARD_W, _OV_CARD_H, self.theme.bg)
+            pyxel.rectb(cx, cy, _OV_CARD_W, _OV_CARD_H, border_col)
+
+            num_col = self.theme.accent if is_cur else self.theme.muted
+            pyxel.text(cx + 2, cy + 2, str(slide_idx + 1), num_col)
+
+            title = self.slides[slide_idx].title
+            if title:
+                max_chars = (_OV_CARD_W - 4) // BUILTIN_GLYPH_W
+                display = title if len(title) <= max_chars else title[:max_chars - 1] + "~"
+                pyxel.text(cx + 2, cy + BUILTIN_GLYPH_H + 4, display, self.theme.fg)
+
+    def _try_save_frame(self) -> None:
+        """Save the current Pyxel screen as a PNG for the export sequence.
+
+        Reads palette-indexed pixel data via ``pyxel.screen.pget()``, converts
+        to RGB using the active theme palette, then writes a PNG with Pillow.
+        Silently skips (with a warning) when Pillow is not installed.
+        """
+        if not self.export_dir:
+            return
+        from .dither import pillow_available
+        if not pillow_available():
+            print("[pyxel-slides] Pillow not available — cannot export PNGs.")
+            return
+        from PIL import Image as PilImage
+        out = self.export_dir / f"slide_{self._export_frame:03d}.png"
+        try:
+            pal = self.theme.palette_as_rgb
+            w, h = self.width, self.height
+            pixels = [
+                pal[pyxel.screen.pget(x, y)]
+                for y in range(h)
+                for x in range(w)
+            ]
+            img = PilImage.new("RGB", (w, h))
+            img.putdata(pixels)
+            img.save(str(out))
+            print(f"[pyxel-slides] Exported {out}")
+        except Exception as exc:  # noqa: BLE001
+            print(f"[pyxel-slides] Failed to export {out}: {exc}")
