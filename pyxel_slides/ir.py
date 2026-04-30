@@ -79,6 +79,13 @@ class MathBlock:
 
 
 @dataclass
+class TableBlock:
+    """A GFM-style pipe table parsed from Markdown."""
+    headers: List[str]
+    rows: List[List[str]]
+
+
+@dataclass
 class SpriteBlock:
     """A Pyxel image-bank sprite rendered via ``pyxel.blt()``.
 
@@ -113,7 +120,7 @@ class SpriteBlock:
     anim_fps: int = 8    # animation speed (frames per second)
 
 
-Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, SpriteBlock]
+Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, SpriteBlock, TableBlock]
 
 
 @dataclass

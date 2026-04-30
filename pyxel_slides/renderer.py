@@ -22,7 +22,7 @@ import pyxel
 from .assets.fonts import FontSet
 from .dither import dither_to_palette, fit_dimensions, pillow_available
 from .highlight import role_to_color, tokenize_lines
-from .ir import CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
+from .ir import CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
 from .mathtext import matplotlib_available, render_math
 from .theme import Theme
 
@@ -110,18 +110,20 @@ def _compress(flat: List[Tuple[str, TextRun]]) -> List[TextRun]:
     def _same(a: TextRun, b: TextRun) -> bool:
         return (a.bold == b.bold and a.italic == b.italic
                 and a.highlight == b.highlight and a.code == b.code
-                and a.url == b.url)
+                and a.url == b.url and a.math == b.math)
 
     for ch, run in flat[1:]:
         if _same(run, ref):
             chars.append(ch)
         else:
             result.append(TextRun("".join(chars), bold=ref.bold, italic=ref.italic,
-                                  highlight=ref.highlight, code=ref.code, url=ref.url))
+                                  highlight=ref.highlight, code=ref.code, url=ref.url,
+                                  math=ref.math))
             chars = [ch]
             ref = run
     result.append(TextRun("".join(chars), bold=ref.bold, italic=ref.italic,
-                           highlight=ref.highlight, code=ref.code, url=ref.url))
+                           highlight=ref.highlight, code=ref.code, url=ref.url,
+                           math=ref.math))
     return result
 
 
@@ -135,13 +137,30 @@ def wrap_runs(
 
     Returns a list of lines, each line being a List[TextRun].
     For monospace fonts (Spleen, built-in), glyph_w is the per-char pixel width.
+    Math runs are treated as unbreakable atoms so that LaTeX expressions are
+    never split across lines (which would produce invalid partial expressions).
     """
     if max_width_px <= 0:
         return [runs]
 
     # Operate at character-count level (valid for monospaced fonts).
     max_chars = max(1, max_width_px // glyph_w)
-    flat = _flatten(runs)
+
+    # Replace spaces within math runs with a private-use sentinel so the
+    # word-wrap logic never breaks a math expression at an internal space.
+    _SPC = "\u00A0"
+    safe_runs = []
+    for r in runs:
+        if r.math and " " in r.text:
+            safe_runs.append(TextRun(
+                r.text.replace(" ", _SPC),
+                bold=r.bold, italic=r.italic, highlight=r.highlight,
+                code=r.code, url=r.url, math=True,
+            ))
+        else:
+            safe_runs.append(r)
+
+    flat = _flatten(safe_runs)
     n = len(flat)
 
     lines: list[list[Tuple[str, TextRun]]] = []
@@ -199,7 +218,23 @@ def wrap_runs(
         i = j
 
     lines.append(cur_line)
-    return [_compress(line) for line in lines]
+    compressed = [_compress(line) for line in lines]
+
+    # Restore sentinel back to real spaces within math runs.
+    result: list[list[TextRun]] = []
+    for line in compressed:
+        fixed: list[TextRun] = []
+        for run in line:
+            if run.math and _SPC in run.text:
+                fixed.append(TextRun(
+                    run.text.replace(_SPC, " "),
+                    bold=run.bold, italic=run.italic, highlight=run.highlight,
+                    code=run.code, url=run.url, math=True,
+                ))
+            else:
+                fixed.append(run)
+        result.append(fixed)
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -228,6 +263,10 @@ def draw_run_line(
     glyph_h: int,
     budget: int,   # chars remaining; -1 = unlimited
     link_areas: Optional[List[LinkArea]] = None,
+    math_cache: Optional[Dict[str, Optional[List[List[int]]]]] = None,
+    palette_rgb: Optional[List[Tuple[int, int, int]]] = None,
+    bold_font: Optional[Any] = None,
+    italic_font: Optional[Any] = None,
 ) -> Tuple[int, int]:
     """Draw one line of styled runs left-to-right.
 
@@ -238,11 +277,14 @@ def draw_run_line(
     Code: eff_code_pill rect + eff_code_pill_fg text.
     Link: eff_link colour + 1-px underline below glyph.
          Appends (x, y, w, h, url) to link_areas when provided.
+    Math (inline $...$): rendered as a small image when math_cache and
+         palette_rgb are provided; falls back to muted raw LaTeX text.
     """
     cx = x
     for run in line_runs:
         text = run.text
-        if budget >= 0:
+        # Math runs: don't consume typewriter budget (rendered as images, not chars).
+        if budget >= 0 and not run.math:
             text = text[:max(0, budget)]
             budget -= len(text)
 
@@ -251,11 +293,45 @@ def draw_run_line(
                 break
             continue
 
+        # --- Inline math: render as a dithered image when possible ---
+        if run.math and math_cache is not None and palette_rgb is not None and matplotlib_available():
+            cache_key = f"imath:{glyph_h}:{run.text}"
+            if cache_key not in math_cache:
+                # 3× supersampling: render at 3× the natural font-size then
+                # LANCZOS-downscale to glyph_h so math matches normal text size.
+                # At 100 DPI, font_size pt ≈ font_size × (100/72) px cap-height;
+                # glyph_h × 2.16 = glyph_h × 3 × 0.72 gives a 3× supersample.
+                math_cache[cache_key] = render_math(
+                    run.text,
+                    max_w=800,
+                    max_h=glyph_h * 12,  # generous ceiling for the 3× render
+                    font_size=max(9.0, glyph_h * 2.16),
+                    palette_rgb=palette_rgb,
+                    target_h=glyph_h,
+                    pad_px=2,
+                )
+            pixels = math_cache.get(cache_key)
+            if pixels is not None:
+                img_h = len(pixels)
+                img_w = len(pixels[0]) if img_h else 0
+                if img_w > 0:
+                    # Bottom-align with the text line so the math baseline
+                    # sits near the text baseline rather than floating above.
+                    vy = y + max(0, glyph_h - img_h)
+                    for row_idx, row_pix in enumerate(pixels):
+                        iy = vy + row_idx
+                        for col_idx, pval in enumerate(row_pix):
+                            pyxel.pset(cx + col_idx, iy, pval)
+                    cx += img_w + 2
+                if budget == 0:
+                    break
+                continue  # skip normal text drawing below
+
         w = _text_width(text, font, glyph_w)
 
         # --- Choose colour and optional background rect ---
         if run.math:
-            # Inline math: show LaTeX source in muted colour.
+            # Fallback: show LaTeX source in muted colour (no matplotlib).
             col = theme.muted
         elif run.highlight:
             pyxel.rect(cx, y - 1, w, glyph_h + 2, theme.eff_highlight_bg)
@@ -270,14 +346,22 @@ def draw_run_line(
         else:
             col = theme.fg
 
+        # --- Choose the effective font for this run ---
+        eff_font = font
+        if run.bold and not run.code and not run.math and bold_font is not None:
+            eff_font = bold_font
+        elif run.italic and not run.code and not run.math and italic_font is not None:
+            eff_font = italic_font
+
         # --- Draw text ---
-        if run.italic and not run.code and not run.math:
+        if run.italic and not run.code and not run.math and italic_font is None:
+            # Fallback italic: pixel-shear effect.
             _draw_italic(cx, y, text, col, font, glyph_w, glyph_h, theme.bg)
         else:
-            _draw_text(cx, y, text, col, font)
+            _draw_text(cx, y, text, col, eff_font)
 
-        if run.bold:
-            # Fake-bold: draw again shifted one pixel right.
+        if run.bold and (bold_font is None) and not run.code and not run.math:
+            # Fallback bold: fake-bold pixel doubling.
             _draw_text(cx + 1, y, text, col, font)
 
         if run.url:
@@ -365,11 +449,16 @@ class SlideRenderer:
 
         if subtitle_runs:
             md_font, mdw, mdh = f.heading_md, f.heading_md_w, f.heading_md_h
-            sub_text = "".join(r.text for r in subtitle_runs)
-            sub_w = _text_width(sub_text, md_font, mdw)
-            sx = (self.width - sub_w) // 2
+            pad = self.theme.padding
+            sub_max_w = self.width - 2 * pad
+            sub_lines = wrap_runs(subtitle_runs, sub_max_w, md_font, mdw)
             sy = y + lgh + 8
-            _draw_text(sx, sy, sub_text, self.theme.accent, md_font)
+            for sub_line_runs in sub_lines:
+                line_text = "".join(r.text for r in sub_line_runs)
+                lw = _text_width(line_text, md_font, mdw)
+                sx = max(pad, (self.width - lw) // 2)
+                _draw_text(sx, sy, line_text, self.theme.accent, md_font)
+                sy += mdh + 4
 
     # --- content slide ---------------------------------------------------- #
 
@@ -394,6 +483,8 @@ class SlideRenderer:
                 y = self._draw_mathblock(block, x, y, max_w)
             elif isinstance(block, SpriteBlock):
                 y = self._draw_spriteblock(block, x, y, max_w)
+            elif isinstance(block, TableBlock):
+                y = self._draw_tableblock(block, x, y, max_w)
 
             if y >= self.height - pad:
                 break  # Overflow clipping (scroll / auto-split in a later phase).
@@ -489,6 +580,10 @@ class SlideRenderer:
                 self.theme, font, fw, fh,
                 budget,
                 link_areas=self.links,
+                math_cache=self._image_cache,
+                palette_rgb=self.theme.palette_as_rgb,
+                bold_font=self.fonts.bold,
+                italic_font=self.fonts.italic,
             )
             y += fh + self.theme.line_spacing
 
@@ -522,6 +617,10 @@ class SlideRenderer:
                     self.theme, font, fw, fh,
                     budget,
                     link_areas=self.links,
+                    math_cache=self._image_cache,
+                    palette_rgb=self.theme.palette_as_rgb,
+                    bold_font=self.fonts.bold,
+                    italic_font=self.fonts.italic,
                 )
                 y += fh + self.theme.line_spacing
 
@@ -543,26 +642,52 @@ class SlideRenderer:
 
         cache_key = ib.path
         if cache_key not in self._image_cache:
-            # Resolve the path relative to the deck directory.
-            if self.base_dir:
-                full_path = (self.base_dir / ib.path).resolve()
+            is_url = ib.path.startswith(("http://", "https://"))
+
+            if is_url:
+                img_src: Any = ib.path  # URL string — fetched below
+            elif self.base_dir:
+                img_src = (self.base_dir / ib.path).resolve()
             else:
-                full_path = Path(ib.path).resolve()
+                img_src = Path(ib.path).resolve()
 
-            if pillow_available() and full_path.exists():
-                # Find natural image size for aspect-ratio calculation.
+            src_available = is_url or (isinstance(img_src, Path) and img_src.exists())
+
+            if pillow_available() and src_available:
+                import io as _io  # noqa: PLC0415
+                import urllib.request as _urlreq  # noqa: PLC0415
+
+                from PIL import Image as _Img  # noqa: PLC0415
+
+                img_open_arg: Any = None
+                nat_w, nat_h = max_w, max_img_h
                 try:
-                    from PIL import Image as _Img  # noqa: PLC0415
-                    with _Img.open(full_path) as probe:
-                        nat_w, nat_h = probe.size
+                    if is_url:
+                        req = _urlreq.Request(  # noqa: S310
+                            img_src,
+                            headers={"User-Agent": "pyxel-slides/1.0 (https://github.com/pyxel-slides/pyxel-slides)"},
+                        )
+                        with _urlreq.urlopen(req, timeout=10) as resp:  # noqa: S310
+                            buf = _io.BytesIO(resp.read())
+                        with _Img.open(buf) as probe:
+                            nat_w, nat_h = probe.size
+                        buf.seek(0)
+                        img_open_arg = buf
+                    else:
+                        with _Img.open(img_src) as probe:
+                            nat_w, nat_h = probe.size
+                        img_open_arg = img_src
                 except Exception:  # noqa: BLE001
-                    nat_w, nat_h = max_w, max_img_h
+                    img_open_arg = None
 
-                tw, th = fit_dimensions(nat_w, nat_h, max_w, max_img_h)
-                self._image_cache[cache_key] = dither_to_palette(
-                    full_path, tw, th,
-                    palette_rgb=self.theme.palette_as_rgb,
-                )
+                if img_open_arg is not None:
+                    tw, th = fit_dimensions(nat_w, nat_h, max_w, max_img_h)
+                    self._image_cache[cache_key] = dither_to_palette(
+                        img_open_arg, tw, th,
+                        palette_rgb=self.theme.palette_as_rgb,
+                    )
+                else:
+                    self._image_cache[cache_key] = None
             else:
                 self._image_cache[cache_key] = None  # placeholder
 
@@ -592,6 +717,45 @@ class SlideRenderer:
                 pyxel.pset(img_x + col_idx, iy, col)
 
         return y + img_h + 4
+
+    def _draw_tableblock(self, tb: TableBlock, x: int, y: int, max_w: int) -> int:
+        """Draw a GFM pipe table with a header row and data rows."""
+        ncols = len(tb.headers)
+        if ncols == 0:
+            return y
+
+        f = self.fonts
+        font, fw, fh = f.body, f.body_w, f.body_h
+        pad = 4
+        row_h = fh + pad * 2
+        col_w = max(fw * 4, max_w // ncols)
+        total_w = col_w * ncols
+
+        # Header row (accent background).
+        pyxel.rect(x, y, total_w, row_h, self.theme.accent)
+        for ci, hdr in enumerate(tb.headers):
+            max_chars = max(1, (col_w - 2 * pad) // fw)
+            _draw_text(x + ci * col_w + pad, y + pad, hdr[:max_chars], self.theme.bg, font)
+        y += row_h
+
+        # Separator line.
+        pyxel.rect(x, y, total_w, 1, self.theme.accent)
+        y += 1
+
+        # Data rows (alternating background).
+        for ri, row in enumerate(tb.rows):
+            bg = self.theme.eff_panel_bg if ri % 2 == 0 else self.theme.bg
+            pyxel.rect(x, y, total_w, row_h, bg)
+            for ci, cell in enumerate(row[:ncols]):
+                max_chars = max(1, (col_w - 2 * pad) // fw)
+                _draw_text(x + ci * col_w + pad, y + pad, cell[:max_chars], self.theme.fg, font)
+            y += row_h
+
+        # Bottom border.
+        pyxel.rect(x, y, total_w, 1, self.theme.accent)
+        y += 1
+
+        return y + 4
 
     def _draw_mathblock(self, mb: MathBlock, x: int, y: int, max_w: int) -> int:
         """Draw a display-math block, centered horizontally.
@@ -647,15 +811,22 @@ class SlideRenderer:
         return y + img_h + 4
 
     def _draw_codeblock(self, cb: CodeBlock, x: int, y: int, max_w: int) -> int:
-        """Draw a syntax-highlighted code panel."""
+        """Draw a syntax-highlighted code panel with a line-number gutter."""
         f = self.fonts
         font, fw, fh = f.mono, f.mono_w, f.mono_h
         line_h = fh + 1
         pad = 3  # inner horizontal + vertical padding
-        max_chars = max(1, (max_w - pad * 2) // fw)
 
         # Tokenize into per-line spans (Pygments or plain fallback).
         token_lines = tokenize_lines(cb.code, cb.language)
+        n_lines = len(token_lines)
+
+        # Line-number gutter geometry.
+        #   [pad][right-aligned digits][pad][1px sep][pad][code…][pad]
+        n_digits = len(str(max(1, n_lines)))
+        gutter_w = pad + fw * n_digits + pad + 1  # includes separator pixel
+
+        max_chars = max(1, (max_w - gutter_w - pad - pad) // fw)
 
         # Truncate token lines that overflow horizontally.
         def _truncate(spans: list) -> list:
@@ -680,9 +851,19 @@ class SlideRenderer:
         block_h = line_h * len(display_lines) + pad * 2
         pyxel.rect(x, y, max_w, block_h, self.theme.eff_panel_bg)
 
+        # Vertical separator between gutter and code.
+        sep_x = x + pad + fw * n_digits + pad
+        pyxel.line(sep_x, y, sep_x, y + block_h - 1, self.theme.muted)
+
+        code_x = sep_x + 1 + pad  # first pixel after separator + a small gap
+
         for i, spans in enumerate(display_lines):
-            cx = x + pad
             ty = y + pad + i * line_h
+            # Line number: right-aligned within the digit columns, muted colour.
+            lineno = str(i + 1).rjust(n_digits)
+            _draw_text(x + pad, ty, lineno, self.theme.muted, font)
+            # Code.
+            cx = code_x
             for text, role in spans:
                 col = role_to_color(role, self.theme)
                 _draw_text(cx, ty, text, col, font)

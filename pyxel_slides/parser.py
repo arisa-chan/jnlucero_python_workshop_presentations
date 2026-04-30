@@ -20,7 +20,7 @@ from typing import List, Optional
 from markdown_it import MarkdownIt
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 
-from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun
+from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
 
 
 # --------------------------------------------------------------------------- #
@@ -138,6 +138,7 @@ def _extract_image(inline_token) -> Optional[tuple[str, str]]:
 
 def parse_markdown(source: str) -> List[Slide]:
     md = MarkdownIt("commonmark")
+    md.enable("table")
     dollarmath_plugin(md, allow_labels=False, allow_digits=False)
     tokens = md.parse(source)
 
@@ -235,6 +236,37 @@ def parse_markdown(source: str) -> List[Slide]:
                     CodeBlock(code=tok.content.rstrip("\n"), language=lang)
                 )
             i += 1
+            continue
+
+        if ttype == "table_open":
+            # Parse GFM table tokens into TableBlock.
+            headers: list[str] = []
+            rows: list[list[str]] = []
+            in_head = False
+            cur_row: list[str] = []
+            j = i + 1
+            while j < n:
+                t = tokens[j]
+                if t.type == "table_close":
+                    break
+                elif t.type == "thead_open":
+                    in_head = True
+                elif t.type == "thead_close":
+                    in_head = False
+                elif t.type == "tr_open":
+                    cur_row = []
+                elif t.type == "tr_close":
+                    if in_head:
+                        headers = cur_row[:]
+                    else:
+                        rows.append(cur_row[:])
+                    cur_row = []
+                elif t.type == "inline":
+                    cur_row.append(t.content.strip())
+                j += 1
+            if headers:
+                current.blocks.append(TableBlock(headers=headers, rows=rows))
+            i = j + 1
             continue
 
         if ttype == "code_block":  # indented code

@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 import webbrowser
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import pyxel
 
@@ -82,6 +82,10 @@ class SlidesApp:
         self.index: int = 0
         self._mtime: float = 0.0
         self._reveal_chars: int = -1  # -1 = show all (typewriter disabled until first load)
+        # Shimizukawa-style slide transition.
+        self._old_img: Optional[Any] = None    # pyxel.Image snapshot of departing slide
+        self._trans_rate: float = 0.0          # 1.0 → 0.0; zero = no transition active
+        self._trans_direction: str = "right"   # "right"|"left"|"down"|"up"
         # Hot-reload: check mtime every _HOT_RELOAD_INTERVAL frames.
         self._hot_reload_counter: int = 0
         # Phase 9 state.
@@ -147,6 +151,12 @@ class SlidesApp:
                 pyxel.quit()
             return
 
+        # --- Slide transition in progress: count down and block input ---
+        if self._trans_rate > 0:
+            delta = 3.0 / self.fps
+            self._trans_rate = max(0.0, self._trans_rate - delta)
+            return
+
         # Escape: close overview if open, otherwise quit.
         if pyxel.btnp(pyxel.KEY_ESCAPE):
             if self._overview:
@@ -165,7 +175,8 @@ class SlidesApp:
             elif pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
                 idx = self._overview_card_at(pyxel.mouse_x, pyxel.mouse_y)
                 if idx >= 0:
-                    self._goto(idx)
+                    self.index = idx   # direct jump — no transition
+                    self._reveal_chars = 0 if self.typewriter else -1
                     self._overview = False
             return
 
@@ -250,6 +261,12 @@ class SlidesApp:
 
         slide = self.slides[self.index]
         self.renderer.draw(slide, reveal_budget=self._reveal_chars)
+
+        # Shimizukawa-style transition overlay (drawn on top of the new slide).
+        if self._trans_rate > 0 and self._old_img is not None:
+            self._draw_trans_overlay()
+            return  # suppress chrome during transition
+
         self._draw_chrome()
 
     # --- helpers ---------------------------------------------------------- #
@@ -257,10 +274,40 @@ class SlidesApp:
     def _goto(self, i: int) -> None:
         if not self.slides:
             return
-        old = self.index
-        self.index = max(0, min(len(self.slides) - 1, i))
-        if self.index != old:
-            self._reveal_chars = 0 if self.typewriter else -1  # reset on slide change
+        new = max(0, min(len(self.slides) - 1, i))
+        if new == self.index:
+            return
+        # Capture the current screen (previous frame's draw) as the departing slide.
+        if self._old_img is None:
+            self._old_img = pyxel.Image(self.width, self.height)
+        self._old_img.blt(0, 0, pyxel.screen, 0, 0, self.width, self.height)
+        # Choose direction based on navigation context.
+        going_forward = new > self.index
+        if going_forward:
+            self._trans_direction = "right" if self.slides[new].is_section_title else "down"
+        else:
+            self._trans_direction = "left" if self.slides[self.index].is_section_title else "up"
+        self.index = new
+        self._reveal_chars = 0 if self.typewriter else -1
+        self._trans_rate = 1.0
+
+    def _draw_trans_overlay(self) -> None:
+        """Shimizukawa-style directional slide with dither cross-fade."""
+        rate = self._trans_rate
+        w, h = self.width, self.height
+        d = self._trans_direction
+        # Old slide slides away quadratically; new slide (already drawn) is underneath.
+        if d == "right":    # old exits left
+            ox, oy = -int(w * (1 - rate) ** 2), 0
+        elif d == "left":   # old exits right
+            ox, oy = +int(w * (1 - rate) ** 2), 0
+        elif d == "down":   # old exits up
+            ox, oy = 0, -int(h * (1 - rate) ** 2)
+        else:               # "up": old exits down
+            ox, oy = 0, +int(h * (1 - rate) ** 2)
+        pyxel.dither(rate)
+        pyxel.blt(ox, oy, self._old_img, 0, 0, w, h)
+        pyxel.dither(1.0)
 
     def _load_markdown(self) -> None:
         text = self.markdown_path.read_text(encoding="utf-8")

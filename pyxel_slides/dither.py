@@ -16,7 +16,7 @@ Public API::
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 # --------------------------------------------------------------------------- #
 # GameBoy DMG reference palette in (R, G, B) order.
@@ -121,12 +121,15 @@ def _floyd_steinberg(
 # --------------------------------------------------------------------------- #
 
 def dither_to_palette(
-    path: Path,
+    path: Any,
     target_w: int,
     target_h: int,
     palette_rgb: Optional[List[Tuple[int, int, int]]] = None,
 ) -> Optional[List[List[int]]]:
     """Load *path*, resize to (*target_w* × *target_h*), dither to *palette_rgb*.
+
+    *path* may be a :class:`pathlib.Path`, a ``str`` file path, or any
+    file-like object accepted by :func:`PIL.Image.open` (e.g. ``io.BytesIO``).
 
     Returns a 2-D list ``pixels[row][col]`` of palette indices, or ``None`` if
     Pillow is unavailable or the image cannot be opened.

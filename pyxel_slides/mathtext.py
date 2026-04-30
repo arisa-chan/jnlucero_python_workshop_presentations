@@ -50,6 +50,8 @@ def render_math(
     max_h: int,
     font_size: float = 14.0,
     palette_rgb: Optional[List[Tuple[int, int, int]]] = None,
+    target_h: Optional[int] = None,
+    pad_px: int = 6,
 ) -> Optional[List[List[int]]]:
     """Render a mathtext expression to a 2-D list of palette indices.
 
@@ -71,6 +73,15 @@ def render_math(
     palette_rgb:
         Optional custom palette (list of (R,G,B) tuples).  Defaults to the
         GameBoy DMG 4-colour palette.
+    target_h:
+        If set and the naturally-rendered image is taller than this value,
+        the output is downscaled (nearest-neighbour) so its height equals
+        ``target_h``.  Use ``glyph_h`` here for inline math to keep the
+        math image from overflowing a single text line.
+    pad_px:
+        Pixel padding added around the tight bounding box in Pass 2.
+        Use a small value (e.g. 2) for inline math; larger (e.g. 6) for
+        display math blocks.
 
     Returns
     -------
@@ -112,7 +123,6 @@ def render_math(
         bbox = text_obj.get_window_extent(canvas1.get_renderer())
 
         # ---- Pass 2: render at tight size ----------------------------------
-        pad_px = 6
         tw = min(max_w, max(4, int(bbox.width) + 2 * pad_px))
         th = min(max_h, max(4, int(bbox.height) + 2 * pad_px))
 
@@ -137,6 +147,18 @@ def render_math(
         w_px, h_px = canvas2.get_width_height()
         raw = np.frombuffer(canvas2.buffer_rgba(), dtype=np.uint8).copy()
         buf = raw.reshape((h_px, w_px, 4))
+
+        # High-quality downscale to target_h via PIL LANCZOS.  The caller
+        # renders at a higher font_size (supersampled) so the downscale acts
+        # as anti-aliasing and produces sharp, crisp inline math images.
+        if target_h is not None and h_px > target_h:
+            scale = target_h / h_px
+            new_w = max(1, round(w_px * scale))
+            from PIL import Image as PILImage  # noqa: PLC0415
+            pil_img = PILImage.fromarray(buf.astype(np.uint8), mode="RGBA")
+            pil_img = pil_img.resize((new_w, target_h), PILImage.LANCZOS)
+            buf = np.array(pil_img)
+            h_px, w_px = target_h, new_w
 
         # Alpha-blend against a pure-white background.
         alpha = buf[:, :, 3:4].astype(float) / 255.0
