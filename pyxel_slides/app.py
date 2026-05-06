@@ -66,7 +66,7 @@ class SlidesApp:
         export_dir: Optional[Path] = None,
         typewriter: bool = False,
     ) -> None:
-        self.markdown_path = Path(markdown_path)
+        self.markdown_path = Path(markdown_path).resolve()
         self.theme = theme
         self.width = width
         self.height = height

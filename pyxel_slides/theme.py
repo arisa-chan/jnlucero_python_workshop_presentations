@@ -3,6 +3,8 @@
 Phase 1: Game Boy DMG 4-shade palette (kept for reference).
 Phase 5+: VS Code Light theme — 16 distinct colours covering syntax
 highlighting, UI chrome, and layout roles.
+Phase 9+: Gradient theme — inspired by the "Rising Along the Gradient"
+event poster: deep purple background, lavender text, violet/pink/gold accents.
 """
 
 from __future__ import annotations
@@ -166,6 +168,68 @@ VSCODE_LIGHT = Theme(
     code_pill_fg=COL_FG,    # 1 – dark text on pill
     highlight_bg=COL_HILIGHT,# 12 – light blue highlight
     highlight_fg=COL_FG,    # 1 – dark text on light highlight
+    padding=8,
+    line_spacing=2,
+)
+
+
+# --------------------------------------------------------------------------- #
+# Gradient theme  ("Rising Along the Gradient" event palette)
+# --------------------------------------------------------------------------- #
+#
+# Colours sampled from the event poster:
+#   Background    #12082A   Primary text       #DCC8F8
+#   Accent violet #B44FE8   Muted purple       #7868A8
+#   Hot pink      #F030A8   Coral orange       #FF8050
+#   Blue-purple   #6858B0   Golden yellow      #FFB830
+#   Orchid        #D068E0   Dark panel         #220E40
+#   Warm gold     #FFD070   Vivid violet       #CC44FF
+#   Highlight bg  #5030B8   Code pill bg       #2A1850
+#   Border        #503FC8   Near-white cream   #FFF0E0
+
+def _gradient_palette() -> List[int]:
+    return [
+        0x12082A,  #  0  COL_BG       – deep dark purple (background)
+        0xDCC8F8,  #  1  COL_FG       – light lavender (primary text)
+        0xB44FE8,  #  2  COL_ACCENT   – bright violet (links, bullets, chrome)
+        0x7868A8,  #  3  COL_MUTED    – muted purple (secondary text)
+        0xF030A8,  #  4  COL_KEYWORD  – hot pink / magenta
+        0xFF8050,  #  5  COL_STRING   – coral orange
+        0x6858B0,  #  6  COL_COMMENT  – blue-purple (comments)
+        0xFFB830,  #  7  COL_NUMBER   – golden yellow
+        0xD068E0,  #  8  COL_BUILTIN  – orchid / pink-purple
+        0x220E40,  #  9  COL_PANEL_BG – darker purple panel
+        0xFFD070,  # 10  COL_HEADING  – warm gold (section titles)
+        0xCC44FF,  # 11  COL_SPECIAL  – vivid violet (decorators)
+        0x5030B8,  # 12  COL_HILIGHT  – deep blue-purple (highlight pill bg)
+        0x2A1850,  # 13  COL_CPILL    – dark purple (inline code pill bg)
+        0x503FC8,  # 14  COL_BORDER   – medium purple-blue (borders)
+        0xFFF0E0,  # 15  COL_ALT      – near-white cream
+    ]
+
+
+GRADIENT = Theme(
+    name="gradient",
+    palette=_gradient_palette(),
+    bg=COL_BG,              # 0 – deep dark purple
+    fg=COL_FG,              # 1 – light lavender
+    accent=COL_ACCENT,      # 2 – bright violet
+    muted=COL_MUTED,        # 3 – muted purple
+    # syntax
+    keyword=COL_KEYWORD,    # 4 – hot pink
+    string_col=COL_STRING,  # 5 – coral orange
+    comment_col=COL_COMMENT,# 6 – blue-purple
+    number_col=COL_NUMBER,  # 7 – golden yellow
+    builtin_col=COL_BUILTIN,# 8 – orchid
+    code_fg=COL_FG,         # 1 – lavender text inside code panels
+    # UI
+    panel_bg=COL_PANEL_BG,  # 9  – darker purple panel
+    heading=COL_HEADING,    # 10 – warm gold for section titles
+    link=COL_ACCENT,        # 2  – bright violet links
+    code_pill=COL_CPILL,    # 13 – dark purple pill
+    code_pill_fg=COL_FG,    # 1  – lavender text on dark pill
+    highlight_bg=COL_HILIGHT,# 12 – deep blue-purple highlight
+    highlight_fg=COL_FG,    # 1  – lavender text on highlight
     padding=8,
     line_spacing=2,
 )

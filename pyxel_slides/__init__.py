@@ -2,7 +2,7 @@
 
 from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
 from .parser import parse_markdown
-from .theme import Theme, GAMEBOY, VSCODE_LIGHT
+from .theme import Theme, GAMEBOY, VSCODE_LIGHT, GRADIENT
 from .app import SlidesApp
 from .assets.fonts import FontSet, ensure_fonts
 from .highlight import tokenize_lines, role_to_color, pygments_available
@@ -25,6 +25,7 @@ __all__ = [
     "Theme",
     "GAMEBOY",
     "VSCODE_LIGHT",
+    "GRADIENT",
     "SlidesApp",
     "SlideRenderer",
     "draw_run_line",

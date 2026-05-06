@@ -1,22 +1,33 @@
-# Python for Applied Mathematics
-## A Rapid Primer
+# Python Workshop: Initialize
 
-**PUP Technical Skills Workshop**
-*April 30, 2026 · 45 Minutes*
+**PUP Mathematics Gradient**
+*May 9, 2026*
 
 ![Python logo](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/200px-Python-logo-notext.svg.png)
 
 ---
 
+## Hi! I'm Jaydee.
+
+- *Senior Structural Engineer I* (2021-present), Abinales Associates Engineers + Consultants
+- *Part-Time Review Instructor* (2019-present), Review Innovations
+- *Associate Member* (2022-present), Association of Structural Engineers of the Philippines, Inc.
+- *MS Civil Engineering (Structural Engineering) student* (2024-present), University of the Philippines Diliman
+- `Pythonista since August 2024`
+
+---
+
 ## Workshop Roadmap
 
-1. **Part 1 — The Python Ecosystem** *(5 min)*
-2. **Part 2 — Fast Computational Math** *(10 min)*
-3. **Part 3 — Data Analysis & Visualization** *(15 min)*
-4. **Part 4 — Capstone: Monte Carlo Simulation** *(10 min)*
-5. **Part 5 — Q&A and Next Steps** *(5 min)*
+1. Why Python?
+2. Libraries for numerical and symbolic computing
+3. Libraries for data analysis and visualization
+4. A famous math example
+5. Next steps
 
-Follow along: open the shared **Google Colab** notebook now!
+---
+
+![Google Colab QR Code](../qrcode.png)
 
 ---
 
