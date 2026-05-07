@@ -3,82 +3,154 @@
 **PUP Mathematics Gradient**
 *May 9, 2026*
 
-![Python logo](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Python-logo-notext.svg/200px-Python-logo-notext.svg.png)
-
 ---
 
 ## Hi! I'm Jaydee.
 
-- *Senior Structural Engineer I* (2021-present), Abinales Associates Engineers + Consultants
-- *Part-Time Review Instructor* (2019-present), Review Innovations
-- *Associate Member* (2022-present), Association of Structural Engineers of the Philippines, Inc.
-- *MS Civil Engineering (Structural Engineering) student* (2024-present), University of the Philippines Diliman
+- *Senior Structural Engineer I* (2021-), Abinales Associates Engineers + Consultants
+- *Associate Member* (2022-), Association of Structural Engineers of the Philippines, Inc.
+- *MS Civil Engineering (Structural Engineering) student* (2024-), University of the Philippines Diliman
 - `Pythonista since August 2024`
+
+|||
+
+![Jaydee Lucero](../picture_aboutme.png?scale=1.4)
 
 ---
 
-## Workshop Roadmap
+## Outline
 
 1. Why Python?
 2. Libraries for numerical and symbolic computing
 3. Libraries for data analysis and visualization
-4. A famous math example
+4. Some examples
 5. Next steps
 
 ---
 
-![Google Colab QR Code](../qrcode.png)
+## QR Codes
+
+`Live codes for this talk`
+
+![Google Colab QR Code](../qrcode_googlecolab.png?scale=1.2)
+
+|||
+
+`Python 3.14 cheat sheet`
+
+![Python 3.14 cheat sheet QR Code](../qrcode_cheatsheet.png?scale=1.2)
+
 
 ---
 
 # Part 1
-## The Python Ecosystem
 
-*5 Minutes*
-
----
-
-## Why Python Dominates Science & Math
-
-- **Readable syntax** — almost reads like pseudocode
-- **Massive ecosystem** — 400 000+ packages on PyPI
-- **#1 language** in data science & quantitative research
-- Used at NASA, Google DeepMind, CERN, central banks
-
-![Stack Overflow Developer Survey](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Python_logo_01.svg/320px-Python_logo_01.svg.png)
+**Why Python?**
 
 ---
 
-## The SciPy Stack
+## Why Python?
 
-The four libraries every mathematician needs:
+`[Python website](https://www.python.org/about/)`
 
-| Library | Role |
-| ------- | ---- |
-| **NumPy** | Fast arrays, linear algebra |
-| **SciPy** | Numerical methods, statistics |
-| **Pandas** | Tabular data, time-series |
-| **Matplotlib** | Publication-quality plots |
+- Python is powerful.
+- Python is fast.
+- Python plays well with others.
+- Python runs everywhere.
+- Python is friendly.
+- Python is easy to learn.
+- Python is open[-source].
 
-![NumPy logo](https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/NumPy_logo_2020.svg/320px-NumPy_logo_2020.svg.png)
+|||
+
+![Python logo](../picture_python_logo.png?scale=1.2)
 
 ---
 
-## Your Environment: Google Colab
+## Why Python?
 
-- Zero install — runs in the browser
-- Free GPU & TPU access
-- All SciPy-stack libraries **pre-installed**
-- Share a link → everyone gets the same notebook
+`[Python website](https://www.python.org/about/)`
 
-![Google Colab logo](https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Google_Colaboratory_SVG_Logo.svg/320px-Google_Colaboratory_SVG_Logo.svg.png)
+- Python is powerful.
+- Python is fast.
+- Python plays well with others.
+- Python runs everywhere.
+- Python is friendly.
+- `Python is easy to learn.`
+- Python is open[-source].
+
+|||
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    int arr[] = {3, 1, 6, 4};
+    int n = 4;
+    int max = arr[0];
+    int i;
+    
+    for(i = 1; i < n; i++)
+        if(arr[i] > max)
+            max = arr[i];
+    
+    printf("max =  %d\n", max);
+    return 0;
+}
+```
+
+```python
+arr = [3, 1, 6, 4]
+print(max(arr))
+```
+
+---
+
+## Why Python?
+
+`[Python website](https://www.python.org/about/)`
+
+- Python is powerful.
+- Python is fast.
+- Python plays well with others.
+- `Python runs everywhere.`
+- Python is friendly.
+- Python is easy to learn.`
+- Python is open[-source].
+
+|||
+
+`[TIOBE Index, April 2026](https://www.tiobe.com/tiobe-index/)`
+
+| Rank | Language | Rating |
+| ---- | -------- | ------ |
+| 1    | Python   | 20.97% |
+| 2    | C        | 12.34% |
+| 3    | C++      | 8.03%  |
+| 4    | Java     | 7.79%  |
+| 5    | C#       | 5.98%  |
+
+---
+
+## Python is powerful.
+
+Some of the Python libraries that we need in applied mathematics.
+
+col_widths=80,300
+| Library | Function |
+| --- | --- |
+| numpy   | fast arrays, fast math, linear algebra |
+| scipy   | numerical math, statistics |
+| sympy   | symbolic math |
+| pandas  | data extraction, data cleaning, data analysis |
+| matplotlib | data visualization |
+| seaborn | data visualization, regression analysis |
 
 ---
 
 # Part 2
-## Fast Computational Math
 
-*10 Minutes*
+**`numpy`, `scipy`, and `sympy` libraries**
 
 ---
 

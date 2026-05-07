@@ -1,6 +1,6 @@
 """pyxel-slides: a Markdown-driven retro presentation engine on top of Pyxel."""
 
-from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
+from .ir import Block, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
 from .parser import parse_markdown
 from .theme import Theme, GAMEBOY, VSCODE_LIGHT, GRADIENT
 from .app import SlidesApp
@@ -19,6 +19,7 @@ __all__ = [
     "ImageBlock",
     "MathBlock",
     "SpriteBlock",
+    "ColumnBreak",
     "TextRun",
     "plain",
     "parse_markdown",

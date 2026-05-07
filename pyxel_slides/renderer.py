@@ -22,7 +22,7 @@ import pyxel
 from .assets.fonts import FontSet
 from .dither import dither_to_palette, fit_dimensions, pillow_available
 from .highlight import role_to_color, tokenize_lines
-from .ir import CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
+from .ir import CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
 from .mathtext import matplotlib_available, render_math
 from .theme import Theme
 
@@ -413,15 +413,27 @@ class SlideRenderer:
     def _draw_section_title(self, slide: Slide) -> None:
         title = ""
         subtitle_runs: List[TextRun] = []
+        logo_block: Optional[ImageBlock] = None
 
         for b in slide.blocks:
             if isinstance(b, Heading) and b.level == 1 and not title:
                 title = b.text
             elif isinstance(b, Paragraph) and not subtitle_runs:
                 subtitle_runs = b.runs
+            elif isinstance(b, ImageBlock) and not logo_block and not title:
+                # Image before H1 is treated as a logo
+                logo_block = b
 
         f = self.fonts
         lg_font, lgw, lgh = f.heading_lg, f.heading_lg_w, f.heading_lg_h
+
+        # Render logo at the top if present
+        logo_height = 0
+        if logo_block:
+            pad = self.theme.padding
+            max_logo_w = self.width - 2 * pad
+            max_logo_h = self.height // 3  # logo can take up to 1/3 of slide height
+            logo_height = self._draw_imageblock(logo_block, pad, pad, max_logo_w) - pad
 
         title_w = _text_width(title, lg_font, lgw)
 
@@ -433,7 +445,9 @@ class SlideRenderer:
             title_w = len(title) * BUILTIN_GLYPH_W * scale
             lgh = BUILTIN_GLYPH_H * scale
             x = (self.width - title_w) // 2
-            y = (self.height - lgh) // 2
+            # Position title: center vertically, accounting for logo
+            available_height = self.height - logo_height
+            y = logo_height + (available_height - lgh) // 2
             _draw_text_scaled_builtin(x, y, title, self.theme.eff_heading, scale)
         else:
             if title_w > self.width - 2 * self.theme.padding:
@@ -444,7 +458,9 @@ class SlideRenderer:
                 title += "..."
                 title_w = _text_width(title, lg_font, lgw)
             x = (self.width - title_w) // 2
-            y = (self.height - lgh) // 2
+            # Position title: center vertically, accounting for logo
+            available_height = self.height - logo_height
+            y = logo_height + (available_height - lgh) // 2
             _draw_text(x, y, title, self.theme.eff_heading, lg_font)
 
         if subtitle_runs:
@@ -462,13 +478,22 @@ class SlideRenderer:
 
     # --- content slide ---------------------------------------------------- #
 
-    def _draw_content(self, slide: Slide, reveal_budget: int = -1) -> None:
-        pad = self.theme.padding
-        x, y = pad, pad
-        max_w = self.width - 2 * pad
-        budget = reveal_budget  # mutable local
+    def _draw_blocks(
+        self,
+        blocks: List,
+        x: int,
+        y: int,
+        max_w: int,
+        budget: int,
+    ) -> Tuple[int, int]:
+        """Draw a sequence of blocks at (x, y) within max_w.
 
-        for block in slide.blocks:
+        Returns (final_y, remaining_budget).  ColumnBreak nodes are skipped.
+        """
+        pad = self.theme.padding
+        for block in blocks:
+            if y >= self.height - pad:
+                break
             if isinstance(block, Heading):
                 y = self._draw_heading(block, x, y, max_w)
             elif isinstance(block, Paragraph):
@@ -485,9 +510,47 @@ class SlideRenderer:
                 y = self._draw_spriteblock(block, x, y, max_w)
             elif isinstance(block, TableBlock):
                 y = self._draw_tableblock(block, x, y, max_w)
+        return y, budget
 
-            if y >= self.height - pad:
-                break  # Overflow clipping (scroll / auto-split in a later phase).
+    def _draw_content(self, slide: Slide, reveal_budget: int = -1) -> None:
+        pad = self.theme.padding
+        budget = reveal_budget
+
+        # Locate a ColumnBreak, if any.
+        col_break_idx = next(
+            (i for i, b in enumerate(slide.blocks) if isinstance(b, ColumnBreak)), -1
+        )
+
+        if col_break_idx < 0:
+            # Single-column layout.
+            self._draw_blocks(slide.blocks, pad, pad, self.width - 2 * pad, budget)
+            return
+
+        # Two-column layout.
+        gap = pad
+        col_w = (self.width - 2 * pad - gap) // 2
+        full_w = self.width - 2 * pad
+
+        pre_blocks = slide.blocks[:col_break_idx]
+        post_blocks = slide.blocks[col_break_idx + 1:]
+
+        # Leading Heading blocks span the full width above both columns.
+        n_headings = next(
+            (i for i, b in enumerate(pre_blocks) if not isinstance(b, Heading)),
+            len(pre_blocks),
+        )
+        y = pad
+        for b in pre_blocks[:n_headings]:
+            y = self._draw_heading(b, pad, y, full_w)
+
+        left_blocks = pre_blocks[n_headings:]
+
+        # Thin vertical divider between the columns.
+        divider_x = pad + col_w + gap // 2
+        pyxel.line(divider_x, y, divider_x, self.height - pad, self.theme.muted)
+
+        _, budget = self._draw_blocks(left_blocks, pad, y, col_w, budget)
+        self._draw_blocks(post_blocks, pad + col_w + gap, y, col_w, budget)
 
     # --- block drawers ---------------------------------------------------- #
 
@@ -640,7 +703,8 @@ class SlideRenderer:
         pad = self.theme.padding
         max_img_h = self.height // 2  # don't let one image eat the whole slide
 
-        cache_key = ib.path
+        # Include scale in cache key so different scales are cached separately
+        cache_key = f"{ib.path}:{ib.scale}"
         if cache_key not in self._image_cache:
             is_url = ib.path.startswith(("http://", "https://"))
 
@@ -681,7 +745,10 @@ class SlideRenderer:
                     img_open_arg = None
 
                 if img_open_arg is not None:
-                    tw, th = fit_dimensions(nat_w, nat_h, max_w, max_img_h)
+                    # Apply scale factor to the target dimensions
+                    scaled_max_w = int(max_w * ib.scale)
+                    scaled_max_h = int(max_img_h * ib.scale)
+                    tw, th = fit_dimensions(nat_w, nat_h, scaled_max_w, scaled_max_h)
                     self._image_cache[cache_key] = dither_to_palette(
                         img_open_arg, tw, th,
                         palette_rgb=self.theme.palette_as_rgb,
@@ -728,14 +795,46 @@ class SlideRenderer:
         font, fw, fh = f.body, f.body_w, f.body_h
         pad = 4
         row_h = fh + pad * 2
-        col_w = max(fw * 4, max_w // ncols)
-        total_w = col_w * ncols
+
+        # Calculate column widths
+        if tb.col_widths:
+            # Use specified widths, but ensure they don't exceed max_w
+            total_specified = sum(w for w in tb.col_widths if w > 0)
+            auto_cols = sum(1 for w in tb.col_widths if w == 0)
+            
+            col_widths = []
+            remaining_w = max_w
+            for i, w in enumerate(tb.col_widths):
+                if w > 0:
+                    # Scale specified width proportionally if total exceeds max_w
+                    if total_specified > max_w:
+                        scaled_w = int(w * max_w / total_specified)
+                        col_widths.append(max(fw * 4, scaled_w))
+                    else:
+                        col_widths.append(w)
+                    remaining_w -= col_widths[-1]
+                else:
+                    # Auto-width: distribute remaining space
+                    if auto_cols > 0:
+                        auto_w = max(fw * 4, remaining_w // auto_cols)
+                        col_widths.append(auto_w)
+                    else:
+                        col_widths.append(max(fw * 4, max_w // ncols))
+        else:
+            # Default: equal width columns
+            col_w = max(fw * 4, max_w // ncols)
+            col_widths = [col_w] * ncols
+
+        total_w = sum(col_widths)
 
         # Header row (accent background).
         pyxel.rect(x, y, total_w, row_h, self.theme.accent)
+        col_x = x
         for ci, hdr in enumerate(tb.headers):
+            col_w = col_widths[ci]
             max_chars = max(1, (col_w - 2 * pad) // fw)
-            _draw_text(x + ci * col_w + pad, y + pad, hdr[:max_chars], self.theme.bg, font)
+            _draw_text(col_x + pad, y + pad, hdr[:max_chars], self.theme.bg, font)
+            col_x += col_w
         y += row_h
 
         # Separator line.
@@ -746,9 +845,12 @@ class SlideRenderer:
         for ri, row in enumerate(tb.rows):
             bg = self.theme.eff_panel_bg if ri % 2 == 0 else self.theme.bg
             pyxel.rect(x, y, total_w, row_h, bg)
+            col_x = x
             for ci, cell in enumerate(row[:ncols]):
+                col_w = col_widths[ci]
                 max_chars = max(1, (col_w - 2 * pad) // fw)
-                _draw_text(x + ci * col_w + pad, y + pad, cell[:max_chars], self.theme.fg, font)
+                _draw_text(col_x + pad, y + pad, cell[:max_chars], self.theme.fg, font)
+                col_x += col_w
             y += row_h
 
         # Bottom border.

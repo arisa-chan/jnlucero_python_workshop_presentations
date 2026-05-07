@@ -20,7 +20,7 @@ from typing import List, Optional
 from markdown_it import MarkdownIt
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 
-from .ir import Block, CodeBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
+from .ir import Block, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
 
 
 # --------------------------------------------------------------------------- #
@@ -91,7 +91,17 @@ def _parse_inline(token) -> List[TextRun]:
                 url=link_url,
             ))
         elif t == "code_inline":
-            runs.append(TextRun(text=child.content, code=True))
+            # Check if code span contains a markdown link: [text](url)
+            content = child.content
+            import re
+            link_match = re.search(r'\[([^\]]+)\]\(([^)]+)\)', content)
+            if link_match:
+                # Extract link text and URL, keep the code highlighting
+                link_text = link_match.group(1)
+                link_url = link_match.group(2)
+                runs.append(TextRun(text=link_text, code=True, url=link_url))
+            else:
+                runs.append(TextRun(text=content, code=True))
         elif t == "math_inline":
             if child.content.strip():
                 runs.append(TextRun(text=child.content, math=True))
@@ -114,8 +124,8 @@ def _plain_text(token) -> str:
     return "".join(r.text for r in _parse_inline(token))
 
 
-def _extract_image(inline_token) -> Optional[tuple[str, str]]:
-    """If the inline consists solely of one image, return (src, alt). Else None."""
+def _extract_image(inline_token) -> Optional[tuple[str, str, float]]:
+    """If the inline consists solely of one image, return (src, alt, scale). Else None."""
     if inline_token is None:
         return None
     # Strip whitespace/softbreak tokens to find the meaningful children.
@@ -128,7 +138,22 @@ def _extract_image(inline_token) -> Optional[tuple[str, str]]:
         img = meaningful[0]
         src = (img.attrs or {}).get("src", "")
         alt = "".join(c.content for c in (img.children or []) if c.type == "text")
-        return src, alt
+        
+        # Parse scale from URL query parameter (e.g., path?scale=0.5)
+        scale = 1.0
+        if "?" in src:
+            base_url, query = src.split("?", 1)
+            src = base_url
+            for param in query.split("&"):
+                if "=" in param:
+                    key, val = param.split("=", 1)
+                    if key.strip() == "scale":
+                        try:
+                            scale = float(val.strip())
+                        except ValueError:
+                            scale = 1.0
+        
+        return src, alt, scale
     return None
 
 
@@ -182,8 +207,8 @@ def parse_markdown(source: str) -> List[Slide]:
             # Detect image-only paragraph → emit ImageBlock.
             img = _extract_image(inline)
             if img is not None:
-                src, alt = img
-                current.blocks.append(ImageBlock(path=src, alt=alt))
+                src, alt, scale = img
+                current.blocks.append(ImageBlock(path=src, alt=alt, scale=scale))
             else:
                 runs = _parse_inline(inline)
                 # Strip leading/trailing whitespace from first/last run.
@@ -201,7 +226,11 @@ def parse_markdown(source: str) -> List[Slide]:
                 # Filter out empty-text runs at start/end.
                 runs = [r for r in runs if r.text]
                 if runs:
-                    current.blocks.append(Paragraph(runs=runs))
+                    # A paragraph whose sole text is "|||" becomes a ColumnBreak.
+                    if len(runs) == 1 and runs[0].text == "|||":
+                        current.blocks.append(ColumnBreak())
+                    else:
+                        current.blocks.append(Paragraph(runs=runs))
             i += 3
             continue
 
@@ -242,6 +271,7 @@ def parse_markdown(source: str) -> List[Slide]:
             # Parse GFM table tokens into TableBlock.
             headers: list[str] = []
             rows: list[list[str]] = []
+            col_widths: list[int] = []
             in_head = False
             cur_row: list[str] = []
             j = i + 1
@@ -264,8 +294,24 @@ def parse_markdown(source: str) -> List[Slide]:
                 elif t.type == "inline":
                     cur_row.append(t.content.strip())
                 j += 1
+            
+            # Check for column widths in the last paragraph block (before this table)
+            if current.blocks and isinstance(current.blocks[-1], Paragraph):
+                import re
+                last_para_text = "".join(r.text for r in current.blocks[-1].runs)
+                match = re.search(r'col_widths\s*=\s*(\d+(?:,\s*\d+)*)', last_para_text)
+                if match:
+                    try:
+                        col_widths = [int(w.strip()) for w in match.group(1).split(',')]
+                        # Remove the paragraph block since it's just metadata
+                        current.blocks.pop()
+                    except ValueError:
+                        col_widths = []
+            
             if headers:
-                current.blocks.append(TableBlock(headers=headers, rows=rows))
+                # Only include col_widths if at least one width was specified and matches column count
+                final_col_widths = col_widths if col_widths and len(col_widths) == len(headers) else None
+                current.blocks.append(TableBlock(headers=headers, rows=rows, col_widths=final_col_widths))
             i = j + 1
             continue
 

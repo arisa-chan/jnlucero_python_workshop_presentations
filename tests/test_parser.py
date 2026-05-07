@@ -1,5 +1,5 @@
 from pyxel_slides.parser import parse_markdown
-from pyxel_slides.ir import CodeBlock, Heading, ListBlock, Paragraph, TextRun
+from pyxel_slides.ir import CodeBlock, ColumnBreak, Heading, ListBlock, Paragraph, TextRun
 
 
 def test_slide_breaks_on_hr_only():
@@ -114,4 +114,36 @@ def test_body_char_count():
     # Heading chars are NOT counted (only Paragraph + ListBlock).
     # "Hello world!" = 12, "item a" = 6, "item b" = 6 → total 24
     assert s.body_char_count() == 24
+
+
+def test_column_break_parsed():
+    md = "## Two Columns\n\nLeft text\n\n|||\n\nRight text\n"
+    slides = parse_markdown(md)
+    assert len(slides) == 1
+    blocks = slides[0].blocks
+    assert isinstance(blocks[0], Heading)
+    assert isinstance(blocks[1], Paragraph) and blocks[1].text == "Left text"
+    assert isinstance(blocks[2], ColumnBreak)
+    assert isinstance(blocks[3], Paragraph) and blocks[3].text == "Right text"
+    assert slides[0].two_column is True
+
+
+def test_column_break_not_in_plain_slide():
+    md = "## Normal Slide\n\nJust a paragraph.\n"
+    slides = parse_markdown(md)
+    assert slides[0].two_column is False
+
+
+def test_pipe_text_not_column_break():
+    md = "a || b\n"
+    slides = parse_markdown(md)
+    assert slides[0].two_column is False
+    assert isinstance(slides[0].blocks[0], Paragraph)
+
+
+def test_body_char_count_ignores_column_break():
+    md = "Left\n\n|||\n\nRight\n"
+    slides = parse_markdown(md)
+    # "Left" = 4, "Right" = 5 → total 9 (ColumnBreak contributes 0)
+    assert slides[0].body_char_count() == 9
 

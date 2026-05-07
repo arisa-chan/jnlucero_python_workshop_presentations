@@ -4,6 +4,7 @@ Phase 2: TextRun inline styles, typed Paragraph/ListBlock.
 Phase 4: ImageBlock for ``![alt](path)`` blocks.
 Phase 5: MathBlock for ``$$...$$`` display math; TextRun.math for ``$...$`` inline math.
 Phase 7: SpriteBlock for ``pyxel-sprite`` fenced code blocks.
+Phase 10: ColumnBreak for two-column slide layout (``|||`` paragraph).
 """
 
 from __future__ import annotations
@@ -70,6 +71,7 @@ class ImageBlock:
     """A standalone image parsed from ``![alt](path)``."""
     path: str       # path as written in the Markdown source
     alt: str = ""   # alt text
+    scale: float = 1.0  # scale factor for resizing (e.g., 0.5 for half size)
 
 
 @dataclass
@@ -83,6 +85,7 @@ class TableBlock:
     """A GFM-style pipe table parsed from Markdown."""
     headers: List[str]
     rows: List[List[str]]
+    col_widths: Optional[List[int]] = None  # Optional column widths in pixels
 
 
 @dataclass
@@ -120,12 +123,27 @@ class SpriteBlock:
     anim_fps: int = 8    # animation speed (frames per second)
 
 
-Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, SpriteBlock, TableBlock]
+@dataclass
+class ColumnBreak:
+    """Column-break marker: splits a content slide into two side-by-side columns.
+
+    Parsed from a paragraph whose sole text is ``|||``.
+    Blocks before the break render in the left column; blocks after in the right.
+    Any leading Heading blocks are drawn full-width above both columns.
+    """
+
+
+Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, SpriteBlock, TableBlock, ColumnBreak]
 
 
 @dataclass
 class Slide:
     blocks: List[Block] = field(default_factory=list)
+
+    @property
+    def two_column(self) -> bool:
+        """True if the slide contains a ColumnBreak (two-column layout)."""
+        return any(isinstance(b, ColumnBreak) for b in self.blocks)
 
     @property
     def is_section_title(self) -> bool:
