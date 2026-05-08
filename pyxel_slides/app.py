@@ -82,6 +82,8 @@ class SlidesApp:
         self.index: int = 0
         self._mtime: float = 0.0
         self._reveal_chars: int = -1  # -1 = show all (typewriter disabled until first load)
+        # Step-by-step display state
+        self._current_step: int = 1  # Current step for progressive display (1 = first step, 0 = show all)
         # Shimizukawa-style slide transition.
         self._old_img: Optional[Any] = None    # pyxel.Image snapshot of departing slide
         self._trans_rate: float = 0.0          # 1.0 → 0.0; zero = no transition active
@@ -196,7 +198,7 @@ class SlidesApp:
             if self._reveal_chars < target:
                 self._reveal_chars = min(target, self._reveal_chars + _REVEAL_SPEED)
 
-        # --- Navigation (Space / Right skip typewriter reveal first) ---
+        # --- Navigation (Space / Right skip typewriter reveal first, then advance steps/slide) ---
         advance_keys = (
             pyxel.btnp(pyxel.KEY_RIGHT)
             or pyxel.btnp(pyxel.KEY_SPACE)
@@ -205,21 +207,52 @@ class SlidesApp:
         )
         if advance_keys:
             if self.slides:
-                target = self.slides[self.index].body_char_count()
+                current_slide = self.slides[self.index]
+                max_step = max((getattr(b, 'step', 1) for b in current_slide.blocks), default=1)
+                target = current_slide.body_char_count()
                 if self.typewriter and self._reveal_chars >= 0 and self._reveal_chars < target:
-                    # Skip reveal: show all text on this slide.
+                    # Skip typewriter reveal: show all text on this slide.
                     self._reveal_chars = target
+                elif self._current_step < max_step:
+                    # Reveal next step before advancing to next slide.
+                    self._current_step += 1
                 else:
                     self._goto(self.index + 1)
 
         elif pyxel.btnp(pyxel.KEY_LEFT) or pyxel.btnp(pyxel.KEY_PAGEUP) or pyxel.btnp(pyxel.KEY_BACKSPACE):
-            self._goto(self.index - 1)
+            if self.slides and self._current_step > 1:
+                self._current_step -= 1
+            else:
+                self._goto(self.index - 1)
         elif pyxel.btnp(pyxel.KEY_HOME):
             self._goto(0)
         elif pyxel.btnp(pyxel.KEY_END):
             self._goto(len(self.slides) - 1)
         elif pyxel.btnp(pyxel.KEY_R):
             self._load_markdown()
+
+        # --- Step-by-step navigation (Down arrow advances step, Up arrow goes back) ---
+        if pyxel.btnp(pyxel.KEY_DOWN):
+            if self.slides:
+                current_slide = self.slides[self.index]
+                # Find the maximum step number for this slide
+                max_step = 1
+                for block in current_slide.blocks:
+                    block_step = getattr(block, 'step', 1)
+                    max_step = max(max_step, block_step)
+                # Advance step if possible
+                if self._current_step < max_step:
+                    self._current_step += 1
+                else:
+                    # If at max step, go to next slide
+                    self._goto(self.index + 1)
+        elif pyxel.btnp(pyxel.KEY_UP):
+            if self.slides:
+                if self._current_step > 1:
+                    self._current_step -= 1
+                else:
+                    # If at step 1, go to previous slide
+                    self._goto(self.index - 1)
 
         # --- Hot-reload: check mtime periodically ---
         if self.hot_reload:
@@ -260,6 +293,7 @@ class SlidesApp:
             return
 
         slide = self.slides[self.index]
+        slide.step = self._current_step  # Set current step before rendering
         self.renderer.draw(slide, reveal_budget=self._reveal_chars)
 
         # Shimizukawa-style transition overlay (drawn on top of the new slide).
@@ -289,6 +323,7 @@ class SlidesApp:
             self._trans_direction = "left" if self.slides[self.index].is_section_title else "up"
         self.index = new
         self._reveal_chars = 0 if self.typewriter else -1
+        self._current_step = 1  # Reset step when changing slides
         self._trans_rate = 1.0
 
     def _draw_trans_overlay(self) -> None:

@@ -7,9 +7,11 @@
 
 ## Hi! I'm Jaydee.
 
-- *Senior Structural Engineer I* (2021-), Abinales Associates Engineers + Consultants
-- *Associate Member* (2022-), Association of Structural Engineers of the Philippines, Inc.
-- *MS Civil Engineering (Structural Engineering) student* (2024-), University of the Philippines Diliman
+- *Senior Structural Engineer I* (2021-present), Abinales Associates Engineers + Consultants
+- *Part-time Review Instructor* (2019-present), Review Innovations
+- *Associate Member* (2022-present), Association of Structural Engineers of the Philippines, Inc.
+- *Member* (2022-present), Philippine Society for Engineering Education
+- *MS Civil Engineering (Structural Engineering) student* (2024-present), University of the Philippines Diliman
 - `Pythonista since August 2024`
 
 |||
@@ -21,10 +23,11 @@
 ## Outline
 
 1. Why Python?
-2. Libraries for numerical and symbolic computing
-3. Libraries for data analysis and visualization
-4. Some examples
-5. Next steps
+2. The *numpy* library
+3. The *scipy*, *sympy* and *matplotlib* libraries
+4. The *pandas* library
+5. A famous math example
+6. Next steps
 
 ---
 
@@ -115,20 +118,24 @@ print(max(arr))
 - Python plays well with others.
 - `Python runs everywhere.`
 - Python is friendly.
-- Python is easy to learn.`
+- Python is easy to learn.
 - Python is open[-source].
 
 |||
 
 `[TIOBE Index, April 2026](https://www.tiobe.com/tiobe-index/)`
 
-| Rank | Language | Rating |
-| ---- | -------- | ------ |
-| 1    | Python   | 20.97% |
-| 2    | C        | 12.34% |
-| 3    | C++      | 8.03%  |
-| 4    | Java     | 7.79%  |
-| 5    | C#       | 5.98%  |
+| Rank | Language   | Rating |
+| ---- | --------   | ------ |
+| 1    | Python     | 20.97% |
+| 2    | C          | 12.34% |
+| 3    | C++        | 8.03%  |
+| 4    | Java       | 7.79%  |
+| 5    | C#         | 5.98%  |
+| 6    | Javascript | 3.11%  |
+| 7    | VB         | 3.02%  |
+| 8    | SQL        | 1.75%  |
+| 9    | R          | 1.62%  |
 
 ---
 
@@ -139,285 +146,707 @@ Some of the Python libraries that we need in applied mathematics.
 col_widths=80,300
 | Library | Function |
 | --- | --- |
-| numpy   | fast arrays, fast math, linear algebra |
-| scipy   | numerical math, statistics |
+| numpy   | arrays, fast math, linear algebra |
+| scipy   | numerical math, stats, regression |
 | sympy   | symbolic math |
-| pandas  | data extraction, data cleaning, data analysis |
+| pandas  | data extraction, cleaning, analysis |
 | matplotlib | data visualization |
-| seaborn | data visualization, regression analysis |
 
 ---
 
 # Part 2
 
-**`numpy`, `scipy`, and `sympy` libraries**
+**The `numpy` library**
 
 ---
 
-## NumPy: Stop Writing `for` Loops
+## The `numpy` library
 
-**Slow (pure Python):**
-```python
-result = [x**2 for x in range(1_000_000)]  # 0.3 s
-```
 
-**Fast (NumPy vectorization):**
 ```python
 import numpy as np
-x = np.arange(1_000_000)
-result = x ** 2                             # 0.002 s — 150× faster
 ```
+<!-- incremental -->
+*for* loops and list comprehensions are slow when creating array-like objects.\
+This line should be on a new line.
+<!-- incremental -->
+```python
+import time
 
-Vectorization pushes loops into **compiled C code**.
+t_start = time.time()
+result = [x**2 for x in range(1_000_000)]
+t_end = time.time()
+print(round(t_end - t_start, 4))          # 0.1069 seconds
+```
+<!-- incremental -->
+*numpy* arrays can make the same instruction `several times faster`.
+<!-- incremental -->
+```python
+import time
+import numpy as np
 
-![NumPy array visualization](https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/NumPy_logo_2020.svg/260px-NumPy_logo_2020.svg.png)
+t_start = time.time()
+result = np.arange(1_000_000) ** 2
+t_end = time.time()
+print(round(t_end - t_start, 4))          # 0.0213 seconds
+```
 
 ---
 
-## NumPy: Matrix Operations
+## The numpy library
 
-Create and manipulate matrices in seconds:
+### Example 1
 
-```python
-A = np.array([[3, 1], [1, 2]])
-b = np.array([9, 8])
+Solve the system of linear equations
 
-# Solve the linear system Ax = b
-x = np.linalg.solve(A, b)
-print(x)   # [2. 3.]
-```
+5x + 3y + 2z = 15<br/>2x - 6y - 7z = -22<br/>4x - 8y + 3z = 9
 
-$$Ax = b \quad\Rightarrow\quad x = A^{-1}b$$
+using
 
-Also: eigenvalues, SVD, QR decomposition — all one-liners.
+1. matrix inverse method,
+2. Cramer's rule, and
+3. *numpy*'s own solver function.
 
 ---
 
-## SciPy: Numerical Methods in 2 Lines
+## The numpy library
+### Solution to #1
 
-**Find the root of a function:**
+<!-- incremental -->
+
 ```python
-from scipy.optimize import brentq
-f = lambda x: x**3 - 2*x - 5
-root = brentq(f, 1, 3)   # 2.0945...
+import numpy as np
+
+A = [[5, 3, 2], [2, -6, -7], [4, -8, 3]]
+B = [15, -22, 9]
 ```
 
-**Numerical integration:**
+<!-- incremental -->
+
+Iterators like lists and tuples can be converted to *numpy* arrays.
+
 ```python
-from scipy.integrate import quad
-result, err = quad(lambda x: x**2, 0, 1)  # 0.3333...
+A = np.array(A, dtype='float')
+B = np.array(B, dtype='float')
 ```
 
-$$\int_0^1 x^2\,dx = \frac{1}{3}$$
+<!-- incremental -->
 
-![SciPy logo](https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/SCIPY_2.svg/260px-SCIPY_2.svg.png)
+Check if the system has a unique solution by finding the rank of A.
+
+```python
+A_rank = np.linalg.matrix_rank(A)   # matrix rank
+print(rf"rank(A) = {A_rank}")       # rank(A) = 3
+```
+
+<!-- incremental -->
+
+Now, solve the system using `AX = B --> X = A^-1 B`.
+
+```python
+A_inv = np.linalg.inv(A)            # matrix inverse
+X = A_inv @ B                       # matrix multiplication
+print(rf"X = {X} using matrix inverse method.")    
+# X = [1.40570175 0.68640351 2.95614035] using matrix inverse method.
+```
+
+---
+
+## The numpy library
+### Solution to #2
+
+<!-- incremental -->
+
+Copy the coefficients matrix A by value.
+
+```python
+A_x = np.copy(A)
+A_y = np.copy(A)
+A_z = np.copy(A)
+```
+
+<!-- incremental -->
+
+Replace each column in the coefficients matrix with the constants vector.
+
+```python
+print(A)        # [[ 5,  3,  2], [  2,  -6,  -7], [4, -8, 3]]
+A_x[:, 0] = B   # [[15,  3,  2], [-22,  -6,  -7], [9, -8, 3]]
+A_y[:, 1] = B   # [[ 5, 15,  2], [  2, -22,  -7], [4,  9, 3]]
+A_z[:, 2] = B   # [[ 5,  3, 15], [  2,  -6, -22], [4, -8, 9]]
+```
+
+<!-- incremental -->
+
+Next, calculate the required determinants.
+
+```python
+D = np.linalg.det(A)            # determinant
+D_x = np.linalg.det(A_x)
+D_y = np.linalg.det(A_y)
+D_z = np.linalg.det(A_z)
+```
+
+---
+
+## The numpy library
+### Solution to #2 (continued)
+
+<!-- incremental -->
+
+Now, solve the system using `X = D_x/D, Y = D_y/D, Z = D_z/D`.
+
+```python
+X = np.array([D_x/D, D_y/D, D_z/D], dtype='float')  # solve the system
+print(rf"X = {X} using Cramer's rule.")
+# X = [1.40570175 0.68640351 2.95614035] using Cramer's rule.
+```
+
+<!-- incremental -->
+
+### Solution to #3
+
+<!-- incremental -->
+
+*numpy* also has a function to solve linear systems directly. It uses [LU decomposition](https://www.netlib.org/lapack/explore-html/d8/da6/group__gesv.html) at its base.
+
+```python
+X = np.linalg.solve(A, B)
+print(rf"X = {X} using numpy's own solver.")
+# X = [1.40570175 0.68640351 2.95614035] using numpy's own solver.
+```
 
 ---
 
 # Part 3
-## Data Analysis & Visualization
-
-*15 Minutes*
+**The `scipy`, `sympy` and `matplotlib` libraries**
 
 ---
 
-## Pandas: Loading Real Data
+## Numerical and symbolic computing
 
+### Example 2
+
+1. (MMC/2013) How many real solutions are there in the equation sin(x) = x^2?
+2. Find the area between the curves y = sin(x) and y = x^2.
+
+```pyxel-graph
+width=160
+height=110
+bg=9
+border=14
+x=-2,2
+y=-1.2,4.2
+grid=true
+plot sin(x) color=2
+plot x^2 color=5
+```
+
+|||
+
+<!-- incremental -->
+
+`Solution outline`
+
+<!-- incremental -->
+1. Determine the number of solutions graphically.
+<!-- incremental -->
+2. Find the exact values of the solutions.
+<!-- incremental -->
+3. Calculate the area between the curves using any of the four methods.
+<!-- incremental -->
+  - Using trapezoidal rule
+  <!-- incremental -->
+  - Using Simpson's one-third rule
+  <!-- incremental -->
+  - Using Gaussian quadrature
+  <!-- incremental -->
+  - Using symbolic integration
+
+---
+
+## The `matplotlib` library
+
+### Solution to #1
+<!-- incremental -->
+We use *matplotlib.pyplot* to graph the left and right sides of the equation and visually count the number of intersections.
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+```
+<!-- incremental -->
+Generate a numpy array of 200 items of equal spacing from -pi to pi.
+```python
+x = np.linspace(-np.pi, np.pi, 200)
+```
+<!-- incremental -->
+Create a figure and axis.
+```python
+fig, ax = plt.subplots()
+```
+<!-- incremental -->
+Plot the functions.
+```python
+ax.plot(x, np.sin(x), label=rf"$f(x) = \sin x$")
+ax.plot(x, x**2, label=rf"$g(x) = x^2$")
+```
+
+---
+## The `matplotlib` library
+### Solution to #1 (continued)
+<!-- incremental -->
+Add grid and axis lines.
+```python
+ax.axhline(0, color='black')
+ax.axvline(0, color='black')
+```
+<!-- incremental -->
+Set labels and title.
+```python
+ax.set_xlabel(rf"$x$")
+ax.set_ylabel(rf"$y$")
+ax.set_title(rf"Solutions to the equation $\sin x = x^2$")
+```
+<!-- incremental -->
+Add legend and grid.
+```python
+ax.legend()
+ax.grid()
+```
+<!-- incremental -->
+Show the plot. `Note: Not required in a Jupyter notebook.`
+```python
+plt.show()
+```
+
+---
+## The `scipy` library
+### Solution to #1 (continued)
+
+<!-- incremental -->
+*scipy*'s `scipy.optimize.fsolve()` function is a wrapper to a [Fortran subroutine](https://www.netlib.org/minpack/hybrd.f) that uses a modification of [Powell hybrid method](https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method) to solve nonlinear equations.
+
+<!-- incremental -->
+```python
+import numpy as np
+from scipy.optimize import fsolve
+```
+
+<!-- incremental -->
+Write the equation as a function `f(x) = left side - right side = 0`.
+```python
+eqn = lambda x : np.sin(x) - x**2
+```
+
+<!-- incremental -->
+Solve the equation. Multiple guess values can be fed to find multiple solutions.
+```python
+roots = fsolve(eqn, [-0.05, 1])
+print(roots)    # [4.50822753e-14 8.76726215e-01]
+```
+
+---
+## The `scipy` library
+### Solution to #2
+
+*scipy*'s `scipy.integrate` contains many methods for numerical integration.
+<!-- incremental -->
+- trapezoidal rule: `I = (h/2)(y_0 + 2y_1 + ... + 2y_(n-1) + y_n)`
+<!-- incremental -->
+- Simpson's one-third rule: `I = (h/3)(y_0 + 4y_1 + 2y_2 + ... + 2y_(n-2) + 4y_(n-1) + y_n)`
+<!-- incremental -->
+```python
+import numpy as np
+from scipy.integrate import trapezoid, simpson
+```
+<!-- incremental -->
+Divide the region into 100 points.
+```python
+x = np.linspace(roots[0], roots[1], 100)
+y = eqn(x)     # Calculate f_upper - f_lower = sin(x) - x^2
+```
+<!-- incremental -->
+Calculate the integral.
+```python
+print(rf"A = {trapezoid(y, x)} by trapezoidal rule.")   # 0.13568369268723793
+print(rf"A = {simpson(y, x)} by Simpson's rule.")       # 0.13569750707724645
+```
+
+---
+
+## The `scipy` library
+### Solution to #2 (continued)
+<!-- incremental -->
+*scipy*'s `scipy.integrate.quad()` function uses 21-point [Gauss-Kronrod quadrature](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.quad.html) to numerically evaluate integrals.
+
+```python
+from scipy.integrate import quad
+```
+<!-- incremental -->
+`quad` requires three arguments: the integrand, and the lower and upper bounds of the integral. It returns two items: the value of the integral, and the error parameters.
+
+```python
+# *iterable unpacks a list or a tuple into comma-separated items.
+# In the below example, *roots = *[roots[0], roots[1]] = roots[0], roots[1].
+print(rf"A = {quad(eqn, *roots)[0]} by scipy quadrature.")    # 0.1356975072306028
+```
+
+---
+
+## The `sympy` library
+### Solution to #2 (continued)
+<!-- incremental -->
+*sympy* is a library used for symbolic mathematics, similar to Mathematica or Maple.
+
+```python
+import sympy as sp
+```
+<!-- incremental -->
+Specify the symbolic variable.
+```python
+x = sp.symbols("x")
+```
+<!-- incremental -->
+Construct the equation or function based on that symbolic equation.
+
+```python
+eqn = sp.sin(x) - x**2
+```
+<!-- incremental -->
+*sympy* also has `solve()` function for symbolic solutions of equations, and `nsolve()` for numerical solutions.
+
+```python
+root_1 = sp.nsolve(eqn, x, 0)
+root_2 = sp.nsolve(eqn, x, 1)
+```
+
+---
+## The `sympy` library
+### Solution to #2 (continued)
+<!-- incremental -->
+Symbolically evaluate the definite integral.
+```python
+print(rf"A = {sp.integrate(eqn, (x, root_1, root_2))} by symbolic integration.")
+# 0.135697507230603
+```
+---
+
+# Part 4
+
+**The `pandas` library**
+
+---
+
+## The `pandas` library
+### Example 3
+
+Given the population of the Philippines from 1840 to 2024 [based on national census](https://psa.gov.ph/system/files/psy/2025_T1_4.xlsx), answer the following questions.
+
+1. The population growth of a certain country is said to be *sustainable* if the annual growth rate is between [0.5% and 1.2%](https://philarchive.org/archive/MALTIP-2). List out the years in which the population growth of the Philippines was sustainable.
+2. Based from the provided population data, calculate the average annual growth rate in percent for each listed year.
+3. Based from the provided annual growth rate, calculate the maximum and minimum growth rate, and the respective years in which they occurred.
+
+---
+
+## The `pandas` library
+
+*pandas* is a Python library used for data analysis.
+
+<!-- incremental -->
 ```python
 import pandas as pd
-
-# Load a CSV — local file or URL
-df = pd.read_csv("ph_demographics.csv")
-
-# One line for all key statistics
-df.describe()
 ```
 
-Output: `count`, `mean`, `std`, `min`, `25%`, `50%`, `75%`, `max`
-for every numeric column — instantly.
-
-![Pandas logo](https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Pandas_logo.svg/320px-Pandas_logo.svg.png)
-
----
-
-## Pandas: Descriptive Statistics
+<!-- incremental -->
+*pandas* can import Excel and CSV files.
 
 ```python
-# Mean, median, standard deviation
-print(df["income"].mean())
-print(df["income"].median())
-print(df["income"].std())
-
-# Correlation matrix
-df.corr()
-
-# Filter: regions with income above average
-df[df["income"] > df["income"].mean()]
+ph_population = pd.read_excel("2025_T1_4.xlsx")
 ```
+<!-- incremental -->
+Imported data can sometimes contain invalid data like `NaN` (not a number) or `None` values. `dropna()` can be used to remove these values.
 
-All operations run on **optimised C extensions** — no loops.
+```python
+ph_population = ph_population.dropna()
+```
+<!-- incremental -->
+Like lists or *numpy* arrays, we can specify the rows that we will get as data.
+
+```python
+ph_population = ph_population[1:]    # Exclude the first row (i.e. index 0).
+```
+<!-- incremental -->
+`.columns` can be used to specify the column names.
+
+```python
+ph_population.columns = ["Year", "Population", "Annual Growth Rate (%)", "Source"]
+```
 
 ---
 
-## Visualizing with Matplotlib
+## The `pandas` library
+
+### Solution to #1
+
+<!-- incremental -->
+We can filter the data by specifying conditions within square brackets.
+
+```python
+sustainable = ph_population[ph_population["Annual Growth Rate (%)"] >= 0.5]
+sustainable = ph_population[ph_population["Annual Growth Rate (%)"] <= 1.2]
+```
+<!-- incremental -->
+We can also specify which columns will be considered.
+```python
+print(sustainable[["Year", "Annual Growth Rate (%)"]])
+```
+<!-- incremental -->
+| Year | Annual Growth Rate (%) |
+|------|------------------------|
+| 1870 | 0.78                   |
+| 1887 | 0.72                   |
+| 1896 | 0.5                    |
+| 2024 | 0.8                    |
+
+---
+
+## The `pandas` library
+### Solution to #2
+
+<!-- incremental -->
+`.diff()` calculates the difference between consecutive values.
+
+```python
+ph_population["Annual Increase"] = ph_population["Population"].diff()/ \
+                                   ph_population["Year"].diff()
+```
+<!-- incremental -->
+`.shift()` shifts the values in a column by a specified number of periods.
+```python
+ph_population["Calculated Rate (%)"] = ph_population["Annual Increase"]/ \
+                                       ph_population["Population"].shift(1)*100
+```
+<!-- incremental -->
+Show only the last two rows.
+```python
+print(ph_population[["Year", "Population", "Annual Increase", 
+                     "Calculated Rate (%)"]][-2:])
+```
+<!-- incremental -->
+| Year | Population | Annual Increase | Calculated Rate (%) |
+|------|------------|-----------------|---------------------|
+| 2020 | 109033245  | 1610788.4       | 1.595167            |
+| 2024 | 112729484  | 924059.75       | 0.847503            |
+
+---
+## The `pandas` library
+### Solution to #3
+<!-- incremental -->
+Some statistical measures that can be computed using *pandas* are `max()`, `min()`, `mean()`, `median()`, `std()`, `count()` and `sum()`.
+```python
+# Maximum and minimum annual growth rates.
+print(ph_population["Annual Growth Rate (%)"].max())    # 3.08
+print(ph_population["Annual Growth Rate (%)"].min())    # 0.5
+```
+<!-- incremental -->
+`.idxmax()` and `.idxmin()` returns the index numbers of the maximum and minimum values, respectively.
+<!-- incremental -->
+<br/>Using that index, we can retrieve the corresponding row using `.loc[]`.
+
+```python
+# Year with which they respectively occurred.
+print(ph_population.loc[ph_population["Annual Growth Rate (%)"].idxmax(), "Year"]) # 1970
+print(ph_population.loc[ph_population["Annual Growth Rate (%)"].idxmin(), "Year"]) # 1896
+```
+---
+
+## The `pandas` library
+### EXTRA: From tables to graphs
+<!-- incremental -->
+`.to_numpy()` converts a pandas Series to a *numpy* array.
 
 ```python
 import matplotlib.pyplot as plt
-import numpy as np
 
-x = np.linspace(0, 2 * np.pi, 300)
-plt.plot(x, np.sin(x), label="sin(x)")
-plt.plot(x, np.cos(x), label="cos(x)")
-plt.legend()
-plt.title("Trigonometric Functions")
-plt.show()
+year = ph_population["Year"].to_numpy(dtype='float')
+population = ph_population["Population"].to_numpy(dtype='float')
 ```
+<!-- incremental -->
+From this, we can plot the data using *matplotlib*.
 
-$$f(x) = \sin(x), \quad g(x) = \cos(x), \quad x \in [0,\, 2\pi]$$
-
-![Matplotlib icon](https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Matplotlib_icon.svg/200px-Matplotlib_icon.svg.png)
+```python
+# A vertical bar plot
+fig, ax = plt.subplots()
+ax.bar([str(y) for y in year], population)   # Convert years from numbers to strings
+ax.tick_params("x", rotation=90)             # Rotate x-axis labels by 90 degrees
+ax.set_xlabel(ph_population.columns[0])      # Set x-axis label
+ax.set_ylabel(ph_population.columns[1])      # Set y-axis label
+ax.set_title("Philippine Population (PSA Census Data)")  # Set plot title
+```
 
 ---
 
-## Seaborn: Regression in One Line
+## The `pandas` library
+### EXTRA: From tables to graphs
+<!-- incremental -->
+Several plots can be placed in a single figure using `plt.subplots()`.
+```python
+# Scatter plots
+fig, ax = plt.subplots(1, 4)                 # Set up 4 subplots in a row
+fig.set_size_inches(24, 6)                   # Set the overall figure size
+
+for i, cur_col in enumerate((1, 2, 4, 5)) :  # Loop through the columns we want to plot
+    # Plot the data
+    ax[i].plot(year, ph_population[ph_population.columns[cur_col]], 'ro-', linewidth=2)
+
+    # Set the axis labels
+    ax[i].set_xlabel(ph_population.columns[0])
+    ax[i].set_ylabel(ph_population.columns[cur_col])
+
+    # Set the title
+    ax[i].set_title(ph_population.columns[cur_col])
+```
+---
+
+## The `pandas` library
+### EXTRA: Regression analysis
+<!-- incremental -->
+`scipy.optimize.curve_fit()` function can be used to construct regression models from given data. 
 
 ```python
-import seaborn as sns
+from scipy.optimize import curve_fit
 
-# Built-in example dataset
-tips = sns.load_dataset("tips")
+lin_curve = lambda x, A, B : A + B * x       # linear regression equation y = A + Bx
+pow_curve = lambda x, A, B : A * B ** x      # power regression equation y = A * B^x
 
-# Scatter plot with regression line
-sns.regplot(x="total_bill", y="tip", data=tips)
-plt.title("Bill vs Tip — Regression Analysis")
-plt.show()
+lin_params, _ = curve_fit(lin_curve, year, population)   # fit linear curve to data
+pow_params, _ = curve_fit(pow_curve, year, population)   # fit power curve to data
+
+# Plot the data and the resulting regression curves.
+fig, ax = plt.subplots()
+ax.scatter(year, population)
+ax.plot(year, lin_curve(year, *lin_params), linestyle='dashed', color='red',
+               label=rf"population = {lin_params[0]:.2f} + {lin_params[1]:.2f} * year")
+ax.plot(year, pow_curve(year, *pow_params), linestyle='dashed', color='green',
+               label=rf"population = {pow_params[0]:.2f} * {pow_params[1]:.2f}^x")
+ax.set_xlabel("Year")
+ax.set_ylabel("Population")
+ax.legend()
 ```
-
-*Seaborn is built on top of Matplotlib and understands
-Pandas DataFrames natively.*
-
-![Normal distribution](https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Normal_Distribution_PDF.svg/360px-Normal_Distribution_PDF.svg.png)
 
 ---
 
 # Part 4
-## Capstone: Monte Carlo Simulation
-
-*10 Minutes*
+** A famous math example **
 
 ---
 
-## What is Monte Carlo?
+## A famous math example
+### Example 4
 
-**Core idea:** use *random sampling* to solve deterministic problems.
+Random points (x, y) are placed in the Cartesian plane such that 0 <= x, y <= 1. Estimate the value of pi.
 
-- Named after the casino district in Monaco
-- Powers option pricing, climate models, particle physics
-- Embarrassingly parallelizable
-
-**Today's task:** estimate $\pi$ using random geometry.
-
-$$\frac{\text{points inside circle}}{\text{total points}} \approx \frac{\pi r^2}{(2r)^2} = \frac{\pi}{4}$$
-
-![Monte Carlo integration](https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/MonteCarloIntegration.png/300px-MonteCarloIntegration.png)
-
----
-
-## Estimating Pi — The Algorithm
-
-1. Generate $N$ random points $(x, y)$ in $[-1, 1]^2$
-2. Count points inside the unit circle: $x^2 + y^2 \leq 1$
-3. Estimate: $\hat{\pi} \approx 4 \times \dfrac{\text{inside}}{N}$
-
-```python
-import numpy as np
-
-N = 1_000_000
-x, y = np.random.uniform(-1, 1, (2, N))
-inside = (x**2 + y**2) <= 1.0
-pi_estimate = 4 * inside.sum() / N
-print(f"π ≈ {pi_estimate:.5f}")   # π ≈ 3.14159
+```pyxel-canvas
+width=152
+height=152
+bg=0
+border=0
+rect 16 16 121 121 color=14 fill=0
+area 16,136 136,136 134,115 129,95 120,76 108,59 93,44 76,32 57,23 37,18 16,16 fill=12 color=12
+curve 136,136 136,70 82,16 16,16 color=4 steps=48
+line 16 136 136 136 color=14
+line 16 16 16 136 color=14
+point 39 102 color=2 size=2
+point 30 99 color=2 size=2
+point 53 114 color=2 size=2
+point 84 48 color=2 size=2
+point 41 75 color=2 size=2
+point 35 19 color=2 size=2
+point 54 75 color=2 size=2
+point 96 96 color=2 size=2
+point 73 28 color=5 size=2
+point 82 111 color=2 size=2
+point 123 102 color=2 size=2
+point 48 75 color=2 size=2
+point 90 48 color=2 size=2
+point 46 133 color=2 size=2
+point 31 57 color=2 size=2
+point 28 100 color=2 size=2
+point 44 19 color=5 size=2
+point 30 48 color=2 size=2
+point 131 28 color=5 size=2
+point 36 71 color=2 size=2
+point 67 17 color=5 size=2
+point 130 99 color=2 size=2
+point 114 122 color=2 size=2
+point 65 74 color=2 size=2
+point 118 94 color=2 size=2
+point 67 66 color=2 size=2
+point 131 50 color=5 size=2
+point 128 43 color=5 size=2
+point 80 106 color=2 size=2
+point 120 21 color=5 size=2
+point 131 33 color=5 size=2
+point 55 87 color=2 size=2
+point 58 135 color=2 size=2
+point 61 70 color=2 size=2
+point 22 33 color=2 size=2
+point 100 58 color=2 size=2
+point 109 131 color=2 size=2
+point 87 121 color=2 size=2
+point 35 37 color=2 size=2
+point 39 34 color=2 size=2
+point 47 29 color=2 size=2
+point 98 105 color=2 size=2
+text 20 142 "inside=34/42  pi~3.24" color=1
 ```
 
-**More points → higher accuracy:** error $\propto N^{-1/2}$.
+|||
 
----
-
-## Visualizing the Simulation
-
-```python
-import matplotlib.pyplot as plt
-
-# Plot a sample of 10 000 points
-sample = 10_000
-inside_s  = inside[:sample]
-outside_s = ~inside[:sample]
-
-plt.scatter(x[:sample][inside_s],  y[:sample][inside_s],
-            s=0.5, color="steelblue")
-plt.scatter(x[:sample][outside_s], y[:sample][outside_s],
-            s=0.5, color="salmon")
-plt.gca().set_aspect("equal")
-plt.title(f"Monte Carlo Pi ≈ {pi_estimate:.5f}")
-plt.show()
-```
-
-![Monte Carlo Pi estimation](https://upload.wikimedia.org/wikipedia/commons/8/84/Pi_30K.gif)
+<!-- incremental -->
+`Solution`
+<!-- incremental -->
+- A(square) = 1^2 = 1
+<!-- incremental -->
+- A(quarter-circle) = (1/4)(pi * 1^2) = pi/4
+<!-- incremental -->
+- A(quarter-circle) / A(square) = (pi/4) / 1 = pi/4
+<!-- incremental -->
+- pi = 4 * A(quarter-circle) / A(square)<br/>= `4 * N(points in quarter-circle) / N(points in square)`
 
 ---
 
 # Part 5
-## Next Steps & Q&A
-
-*5 Minutes*
+**Next steps**
 
 ---
 
-## Skill Up Before You Step Up
+## Next steps
 
-**Top 3 things a math student can do to get hired:**
-
-1. **Build a GitHub portfolio**
-   - Push your Colab notebooks to GitHub today
-   - Employers look for *evidence* of technical work
-
-2. **Learn SQL next**
-   - Data lives in databases before it reaches Python
-   - 80% of real data jobs require SQL
-
-3. **Pick one domain to specialise in**
-   - Actuarial / Risk: learn `statsmodels`, `lifelines`
-   - ML / AI: learn `scikit-learn`, `PyTorch`
-   - Finance: learn `QuantLib`, `pandas-ta`
-
-![GitHub logo](https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Octicons-mark-github.svg/200px-Octicons-mark-github.svg.png)
-
----
-
-## Take-Home Challenge
-
-The notebook has an **unsolved section** at the bottom:
-
-> *Using the Monte Carlo approach, estimate the value of*
-> $$\int_0^1 \sqrt{1 - x^2}\,dx = \frac{\pi}{4}$$
-> *without using `scipy.integrate`. Compare your answer to
-> the `scipy.integrate.quad` result.*
-
-- Hint: this integral is the area of a quarter-circle.
-- Target: accuracy within 0.001 using $N = 500\,000$.
+1. Create your Github account.
+<!-- incremental -->
+2. Read the library documentation **a lot**.
+<!-- incremental -->
+3. Stop coding examples. Start building your own projects.
+<!-- incremental -->
+4. Feel free to make mistakes.
+<!-- incremental -->
+5. Feel free to ask questions.
+<!-- incremental -->
+6. When using AI, `always` verify the results.
+<!-- incremental -->
+7. Find your desired specialization (e.g. actuarial science, finance, AI/ML, software and game development, etc).
+<!-- incremental -->
+8. Join a community (e.g. Reddit, Discord, community groups, etc).
+<!-- incremental -->
+9. Continue learning.
 
 ---
 
-# Thanks!
+# Thank you very much!
 
-**Resources:**
-- Colab notebook: *link shared in chat*
-- NumPy docs: [numpy.org](https://numpy.org)
-- SciPy docs: [scipy.org](https://scipy.org)
-- Pandas docs: [pandas.pydata.org](https://pandas.pydata.org)
+**Do you have any questions?**
 
-*Questions? Raise your hand or drop them in the chat.*
-
-Built with [pyxel-slides](https://github.com/kitao/pyxel) — the retro presentation engine.
 
 

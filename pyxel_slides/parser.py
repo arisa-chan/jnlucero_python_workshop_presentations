@@ -15,12 +15,14 @@ Phase 5 additions:
 
 from __future__ import annotations
 
-from typing import List, Optional
+import shlex
+from typing import List, Literal, Optional
 
 from markdown_it import MarkdownIt
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 
-from .ir import Block, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
+from .canvas import Canvas, Graph, UnsafeExpressionError
+from .ir import Block, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
 
 
 # --------------------------------------------------------------------------- #
@@ -51,6 +53,316 @@ def _parse_sprite_block(content: str) -> SpriteBlock:
         except ValueError:
             pass  # ignore bad values
     return SpriteBlock(**fields)
+
+
+# --------------------------------------------------------------------------- #
+# Canvas / Graph fenced block parsers
+# --------------------------------------------------------------------------- #
+
+def _parse_bool(value: str, default: bool = False) -> bool:
+    val = value.strip().lower()
+    if val in ("1", "true", "yes", "on"):
+        return True
+    if val in ("0", "false", "no", "off"):
+        return False
+    return default
+
+
+def _parse_int(value: str, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_float(value: str, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_pair(value: str, default: tuple[float, float]) -> tuple[float, float]:
+    if "," not in value:
+        return default
+    left, _, right = value.partition(",")
+    return _parse_float(left, default[0]), _parse_float(right, default[1])
+
+
+def _parse_align(value: str) -> Literal["left", "center", "right"]:
+    if value in ("left", "center", "right"):
+        return value
+    return "center"
+
+
+def _split_command_options(tokens: list[str]) -> tuple[list[str], dict[str, str]]:
+    args: list[str] = []
+    options: dict[str, str] = {}
+    for token in tokens:
+        if "=" in token:
+            key, _, value = token.partition("=")
+            options[key.strip().lower().replace("-", "_")] = value.strip()
+        else:
+            args.append(token)
+    return args, options
+
+
+def _parse_point_tokens(tokens: list[str]) -> list[tuple[float, float]]:
+    numbers: list[float] = []
+    for token in tokens:
+        if "," in token:
+            left, _, right = token.partition(",")
+            numbers.append(_parse_float(left))
+            numbers.append(_parse_float(right))
+        else:
+            numbers.append(_parse_float(token))
+    points: list[tuple[float, float]] = []
+    for i in range(0, len(numbers) - 1, 2):
+        points.append((numbers[i], numbers[i + 1]))
+    return points
+
+
+def _parse_fill_option(value: Optional[str], color: int) -> bool | int | None:
+    if value is None:
+        return None
+    lowered = value.strip().lower()
+    if lowered in ("", "none", "false", "no", "off"):
+        return None
+    if lowered in ("true", "yes", "on", "fill"):
+        return True
+    return _parse_int(value, color)
+
+
+def _iter_directive_lines(content: str):
+    for raw in content.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            tokens = shlex.split(line)
+        except ValueError:
+            continue
+        if tokens:
+            yield tokens
+
+
+def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
+    """Parse a ``pyxel-canvas`` fence into a CanvasBlock.
+
+    Supported command examples:
+      ``point 12 10 color=2 size=2``
+      ``line 0 0 80 40 color=2``
+      ``curve 5,50 40,5 75,50 color=4 steps=32``
+      ``area 10,30 30,10 50,30 fill=12 color=2``
+      ``text 8 8 "hello" color=1``
+    """
+
+    canvas_kwargs: dict = {}
+    scale = 1.0
+    align: Literal["left", "center", "right"] = "center"
+    pending_commands: list[list[str]] = []
+
+    for tokens in _iter_directive_lines(content):
+        if len(tokens) == 1 and "=" in tokens[0]:
+            key, _, value = tokens[0].partition("=")
+            key = key.strip().lower().replace("-", "_")
+            value = value.strip()
+            if key in ("width", "w"):
+                canvas_kwargs["width"] = _parse_int(value, 240)
+            elif key in ("height", "h"):
+                canvas_kwargs["height"] = _parse_int(value, 120)
+            elif key in ("bg", "background"):
+                canvas_kwargs["bg"] = _parse_int(value, 0)
+            elif key == "border":
+                canvas_kwargs["border"] = _parse_int(value, -1)
+            elif key == "scale":
+                scale = max(0.1, _parse_float(value, 1.0))
+            elif key == "align":
+                align = _parse_align(value)
+            continue
+        pending_commands.append(tokens)
+
+    canvas = Canvas(**canvas_kwargs)
+
+    for tokens in pending_commands:
+        verb = tokens[0].strip().lower().replace("-", "_")
+        args, opts = _split_command_options(tokens[1:])
+        color = _parse_int(opts.get("color", "1"), 1)
+
+        if verb == "point" and len(args) >= 2:
+            canvas.point(
+                _parse_float(args[0]),
+                _parse_float(args[1]),
+                color=color,
+                size=_parse_int(opts.get("size", "1"), 1),
+            )
+        elif verb == "line" and len(args) >= 4:
+            canvas.line(
+                _parse_float(args[0]),
+                _parse_float(args[1]),
+                _parse_float(args[2]),
+                _parse_float(args[3]),
+                color=color,
+            )
+        elif verb in ("polyline", "path"):
+            canvas.polyline(_parse_point_tokens(args), color=color)
+        elif verb == "curve":
+            canvas.curve(
+                _parse_point_tokens(args),
+                color=color,
+                steps=_parse_int(opts.get("steps", "32"), 32),
+            )
+        elif verb in ("area", "polygon"):
+            canvas.area(
+                _parse_point_tokens(args),
+                color=color,
+                fill=_parse_fill_option(opts.get("fill"), color),
+            )
+        elif verb == "rect" and len(args) >= 4:
+            canvas.rect(
+                _parse_float(args[0]),
+                _parse_float(args[1]),
+                _parse_float(args[2]),
+                _parse_float(args[3]),
+                color=color,
+                fill=_parse_fill_option(opts.get("fill"), color),
+            )
+        elif verb == "text" and len(args) >= 3:
+            canvas.text(
+                _parse_float(args[0]),
+                _parse_float(args[1]),
+                " ".join(args[2:]),
+                color=color,
+            )
+
+    return CanvasBlock(canvas=canvas, scale=scale, align=align, step=step)
+
+
+def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
+    """Parse a ``pyxel-graph`` fence into a CanvasBlock backed by Graph."""
+
+    width = 240
+    height = 120
+    bg = 0
+    border = 14
+    scale = 1.0
+    align: Literal["left", "center", "right"] = "center"
+    x_min, x_max = -10.0, 10.0
+    y_min, y_max = -10.0, 10.0
+    axes = True
+    grid = False
+    axis_color = 3
+    grid_color = 14
+    samples = 160
+    commands: list[list[str]] = []
+
+    for tokens in _iter_directive_lines(content):
+        if len(tokens) == 1 and "=" in tokens[0]:
+            key, _, value = tokens[0].partition("=")
+            key = key.strip().lower().replace("-", "_")
+            value = value.strip()
+            if key in ("width", "w"):
+                width = _parse_int(value, width)
+            elif key in ("height", "h"):
+                height = _parse_int(value, height)
+            elif key in ("bg", "background"):
+                bg = _parse_int(value, bg)
+            elif key == "border":
+                border = _parse_int(value, border)
+            elif key == "scale":
+                scale = max(0.1, _parse_float(value, scale))
+            elif key == "align":
+                align = _parse_align(value)
+            elif key in ("x", "x_range"):
+                x_min, x_max = _parse_pair(value, (x_min, x_max))
+            elif key in ("y", "y_range"):
+                y_min, y_max = _parse_pair(value, (y_min, y_max))
+            elif key == "x_min":
+                x_min = _parse_float(value, x_min)
+            elif key == "x_max":
+                x_max = _parse_float(value, x_max)
+            elif key == "y_min":
+                y_min = _parse_float(value, y_min)
+            elif key == "y_max":
+                y_max = _parse_float(value, y_max)
+            elif key == "axes":
+                axes = _parse_bool(value, axes)
+            elif key == "grid":
+                grid = _parse_bool(value, grid)
+            elif key == "axis_color":
+                axis_color = _parse_int(value, axis_color)
+            elif key == "grid_color":
+                grid_color = _parse_int(value, grid_color)
+            elif key == "samples":
+                samples = _parse_int(value, samples)
+            continue
+        commands.append(tokens)
+
+    graph = Graph(
+        Canvas(width=width, height=height, bg=bg, border=border),
+        x_min=x_min,
+        x_max=x_max,
+        y_min=y_min,
+        y_max=y_max,
+        axes=axes,
+        grid=grid,
+        axis_color=axis_color,
+        grid_color=grid_color,
+        samples=samples,
+    )
+
+    for tokens in commands:
+        verb = tokens[0].strip().lower().replace("-", "_")
+        args, opts = _split_command_options(tokens[1:])
+        color = _parse_int(opts.get("color", "2"), 2)
+        expr = opts.get("expr") or " ".join(args)
+        command_samples = _parse_int(opts.get("samples", str(samples)), samples)
+
+        try:
+            if verb in ("plot", "function", "f") and expr:
+                graph.plot(expr, color=color, samples=command_samples)
+            elif verb in ("shade", "shade_under") and expr:
+                x0 = _parse_float(opts["x_min"], x_min) if "x_min" in opts else None
+                x1 = _parse_float(opts["x_max"], x_max) if "x_max" in opts else None
+                if "x" in opts:
+                    x0, x1 = _parse_pair(opts["x"], (x_min, x_max))
+                baseline: str | float
+                baseline_raw = opts.get("baseline", "0")
+                try:
+                    baseline = float(baseline_raw)
+                except ValueError:
+                    baseline = baseline_raw
+                graph.shade_under(
+                    expr,
+                    baseline=baseline,
+                    color=color,
+                    x_min=x0,
+                    x_max=x1,
+                    samples=command_samples,
+                )
+            elif verb in ("shade_between", "between"):
+                upper = opts.get("upper")
+                lower = opts.get("lower")
+                if upper is None or lower is None:
+                    if len(args) >= 2:
+                        upper, lower = args[0], args[1]
+                if upper and lower:
+                    x0 = _parse_float(opts["x_min"], x_min) if "x_min" in opts else None
+                    x1 = _parse_float(opts["x_max"], x_max) if "x_max" in opts else None
+                    if "x" in opts:
+                        x0, x1 = _parse_pair(opts["x"], (x_min, x_max))
+                    graph.shade_between(
+                        upper,
+                        lower,
+                        color=color,
+                        x_min=x0,
+                        x_max=x1,
+                        samples=command_samples,
+                    )
+        except (SyntaxError, UnsafeExpressionError, ValueError):
+            continue
+
+    return CanvasBlock(canvas=graph.draw(), scale=scale, align=align, step=step)
 
 
 # --------------------------------------------------------------------------- #
@@ -108,7 +420,11 @@ def _parse_inline(token) -> List[TextRun]:
         elif t == "softbreak":
             runs.append(TextRun(" ", bold=bold > 0, italic=italic > 0, url=link_url))
         elif t == "hardbreak":
-            runs.append(TextRun("\n", bold=bold > 0, italic=italic > 0, url=link_url))
+            runs.append(TextRun("", bold=bold > 0, italic=italic > 0, url=link_url, newline=True))
+        elif t == "html_inline":
+            # Check if it's a <br> or <br/> tag (from user input)
+            if "<br" in child.content:
+                runs.append(TextRun("", bold=bold > 0, italic=italic > 0, url=link_url, newline=True))
         # image / html_inline in mixed content → render alt text as plain run
         elif t == "image":
             alt = "".join(c.content for c in (child.children or []) if c.type == "text")
@@ -162,19 +478,23 @@ def _extract_image(inline_token) -> Optional[tuple[str, str, float]]:
 # --------------------------------------------------------------------------- #
 
 def parse_markdown(source: str) -> List[Slide]:
-    md = MarkdownIt("commonmark")
+    md = MarkdownIt("commonmark", {"breaks": True})
     md.enable("table")
     dollarmath_plugin(md, allow_labels=False, allow_digits=False)
     tokens = md.parse(source)
 
     slides: List[Slide] = []
-    current = Slide()
+    current = Slide(blocks=[])
+    current_step = 1  # Track current step number for progressive display
 
     def flush_slide() -> None:
-        nonlocal current
+        nonlocal current, current_step
         if current.blocks:
             slides.append(current)
-        current = Slide()
+        current = Slide(blocks=[])
+        current_step = 1
+
+    source_lines = source.splitlines()
 
     i = 0
     n = len(tokens)
@@ -182,15 +502,27 @@ def parse_markdown(source: str) -> List[Slide]:
         tok = tokens[i]
         ttype = tok.type
 
+        # Debug: print token type and content
+        if tok.content and ("step" in tok.content.lower() or "<!--" in tok.content):
+            print(f"[DEBUG] Token: {ttype}, content: {tok.content[:100]}")
+
         if ttype == "hr":
             flush_slide()
+            i += 1
+            continue
+
+        if ttype == "html_block":
+            import re
+            content = tok.content
+            if re.search(r'<!--\s*(?:step|incremental)\s*-->', content, re.IGNORECASE):
+                current_step += 1
             i += 1
             continue
 
         if ttype in ("math_block", "math_block_label"):
             expr = tok.content.strip()
             if expr:
-                current.blocks.append(MathBlock(expr=expr))
+                current.blocks.append(MathBlock(expr=expr, step=current_step))
             i += 1
             continue
 
@@ -198,17 +530,38 @@ def parse_markdown(source: str) -> List[Slide]:
             level = int(tok.tag[1])  # 'h1' -> 1
             inline = tokens[i + 1] if i + 1 < n else None
             text = _plain_text(inline).strip()
-            current.blocks.append(Heading(level=level, text=text))  # type: ignore[arg-type]
+            current.blocks.append(Heading(level=level, text=text, step=current_step))  # type: ignore[arg-type]
             i += 3  # heading_open, inline, heading_close
             continue
 
         if ttype == "paragraph_open":
             inline = tokens[i + 1] if i + 1 < n else None
+            # Check if this paragraph contains step marker
+            if inline and inline.type == "inline":
+                import re
+                if re.search(r'<!--\s*step\s*-->', inline.content, re.IGNORECASE):
+                    # Increment step counter
+                    current_step += 1
+                    print(f"[DEBUG] Step marker found, current_step now = {current_step}")
+                    i += 3
+                    continue
+                if re.search(r'<!--\s*incremental\s*-->', inline.content, re.IGNORECASE):
+                    current_step += 1
+                    i += 3
+                    continue
+                # Check if this paragraph contains col_widths= pattern (table metadata)
+                if re.search(r'col_widths\s*=\s*(\d+(?:,\s*\d+)*)', inline.content):
+                    # This is a table metadata paragraph - skip it
+                    # The table parser will handle extracting the widths
+                    i += 3
+                    continue
+            
             # Detect image-only paragraph → emit ImageBlock.
             img = _extract_image(inline)
             if img is not None:
                 src, alt, scale = img
-                current.blocks.append(ImageBlock(path=src, alt=alt, scale=scale))
+                print(f"[DEBUG] ImageBlock created with step={current_step}")
+                current.blocks.append(ImageBlock(path=src, alt=alt, scale=scale, step=current_step))
             else:
                 runs = _parse_inline(inline)
                 # Strip leading/trailing whitespace from first/last run.
@@ -223,20 +576,43 @@ def parse_markdown(source: str) -> List[Slide]:
                         bold=runs[-1].bold, italic=runs[-1].italic,
                         highlight=runs[-1].highlight, code=runs[-1].code, url=runs[-1].url,
                     )
-                # Filter out empty-text runs at start/end.
-                runs = [r for r in runs if r.text]
+                # Filter out empty-text runs, but keep newline-only runs (<br/>).
+                runs = [r for r in runs if r.text or r.newline]
                 if runs:
                     # A paragraph whose sole text is "|||" becomes a ColumnBreak.
                     if len(runs) == 1 and runs[0].text == "|||":
                         current.blocks.append(ColumnBreak())
                     else:
-                        current.blocks.append(Paragraph(runs=runs))
+                        print(f"[DEBUG] Paragraph created with step={current_step}")
+                        current.blocks.append(Paragraph(runs=runs, step=current_step))
             i += 3
             continue
 
         if ttype in ("bullet_list_open", "ordered_list_open"):
             ordered = ttype == "ordered_list_open"
+
+            # Starting number for ordered lists (e.g. "2. item" → start=2).
+            start = 1
+            if ordered:
+                try:
+                    start = int((tok.attrs or {}).get("start", 1))
+                except (ValueError, TypeError):
+                    start = 1
+
+            # Derive indentation depth from how many spaces precede the list
+            # marker in the source.  Handles the case where <!-- incremental -->
+            # at column 0 breaks a list so that "  - sub item" becomes its own
+            # top-level ListBlock but should still render indented.
+            base_depth = 0
+            if tok.map is not None:
+                line_idx = tok.map[0]
+                if 0 <= line_idx < len(source_lines):
+                    raw = source_lines[line_idx]
+                    leading = len(raw) - len(raw.lstrip())
+                    base_depth = leading // 2
+
             items: list[list[TextRun]] = []
+            depths: list[int] = []
             j = i + 1
             depth = 1
             while j < n and depth > 0:
@@ -247,22 +623,27 @@ def parse_markdown(source: str) -> List[Slide]:
                     depth -= 1
                     if depth == 0:
                         break
-                elif t.type == "inline" and depth == 1:
+                elif t.type == "inline":
                     item_runs = _parse_inline(t)
-                    item_runs = [r for r in item_runs if r.text]
+                    item_runs = [r for r in item_runs if r.text or r.newline]
                     items.append(item_runs if item_runs else [TextRun("")])
+                    depths.append(base_depth + depth - 1)
                 j += 1
-            current.blocks.append(ListBlock(items=items, ordered=ordered))
+            current.blocks.append(ListBlock(items=items, ordered=ordered, step=current_step, start=start, depths=depths))
             i = j + 1
             continue
 
         if ttype == "fence":
-            lang = (tok.info or "").strip()
+            lang = (tok.info or "").strip().split()[0] if (tok.info or "").strip() else ""
             if lang == "pyxel-sprite":
                 current.blocks.append(_parse_sprite_block(tok.content))
+            elif lang in ("pyxel-canvas", "canvas"):
+                current.blocks.append(_parse_canvas_block(tok.content, step=current_step))
+            elif lang in ("pyxel-graph", "graph"):
+                current.blocks.append(_parse_graph_block(tok.content, step=current_step))
             else:
                 current.blocks.append(
-                    CodeBlock(code=tok.content.rstrip("\n"), language=lang)
+                    CodeBlock(code=tok.content.rstrip("\n"), language=lang, step=current_step)
                 )
             i += 1
             continue
@@ -311,12 +692,12 @@ def parse_markdown(source: str) -> List[Slide]:
             if headers:
                 # Only include col_widths if at least one width was specified and matches column count
                 final_col_widths = col_widths if col_widths and len(col_widths) == len(headers) else None
-                current.blocks.append(TableBlock(headers=headers, rows=rows, col_widths=final_col_widths))
+                current.blocks.append(TableBlock(headers=headers, rows=rows, col_widths=final_col_widths, step=current_step))
             i = j + 1
             continue
 
         if ttype == "code_block":  # indented code
-            current.blocks.append(CodeBlock(code=tok.content.rstrip("\n"), language=""))
+            current.blocks.append(CodeBlock(code=tok.content.rstrip("\n"), language="", step=current_step))
             i += 1
             continue
 

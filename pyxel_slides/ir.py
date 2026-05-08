@@ -10,7 +10,9 @@ Phase 10: ColumnBreak for two-column slide layout (``|||`` paragraph).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Literal, Union
+from typing import List, Literal, Optional, Union
+
+from .canvas import Canvas
 
 
 HeadingLevel = Literal[1, 2, 3, 4, 5, 6]
@@ -27,6 +29,7 @@ class TextRun:
     code: bool = False       # inline ``code`` span
     url: str = ""            # non-empty = hyperlink (click handler comes in Phase 6)
     math: bool = False       # inline ``$...$`` math span (expr stored in .text)
+    newline: bool = False    # explicit line break (from hardbreak token)
 
     @property
     def is_plain(self) -> bool:
@@ -42,11 +45,13 @@ def plain(text: str) -> List[TextRun]:
 class Heading:
     level: HeadingLevel
     text: str  # Headings always render as plain text
+    step: int = 1  # Step number for progressive display
 
 
 @dataclass
 class Paragraph:
     runs: List[TextRun]
+    step: int = 1  # Step number for progressive display (1 = first step)
 
     @property
     def text(self) -> str:
@@ -58,12 +63,16 @@ class Paragraph:
 class ListBlock:
     items: List[List[TextRun]]  # each list item = a list of TextRun
     ordered: bool = False
+    step: int = 1  # Step number for progressive display
+    start: int = 1  # Starting number for ordered lists
+    depths: List[int] = field(default_factory=list)  # nesting depth of each item (0 = top-level)
 
 
 @dataclass
 class CodeBlock:
     code: str
     language: str = ""
+    step: int = 1  # Step number for progressive display
 
 
 @dataclass
@@ -72,12 +81,23 @@ class ImageBlock:
     path: str       # path as written in the Markdown source
     alt: str = ""   # alt text
     scale: float = 1.0  # scale factor for resizing (e.g., 0.5 for half size)
+    step: int = 1  # Step number for progressive display
 
 
 @dataclass
 class MathBlock:
     """Display-mode math block parsed from ``$$...$$``."""
     expr: str   # raw LaTeX expression (without surrounding dollar signs)
+    step: int = 1  # Step number for progressive display
+
+
+@dataclass
+class CanvasBlock:
+    """A rendered Canvas object parsed from a ``pyxel-canvas`` or ``pyxel-graph`` fence."""
+    canvas: Canvas
+    scale: float = 1.0
+    align: Literal["left", "center", "right"] = "center"
+    step: int = 1  # Step number for progressive display
 
 
 @dataclass
@@ -86,6 +106,7 @@ class TableBlock:
     headers: List[str]
     rows: List[List[str]]
     col_widths: Optional[List[int]] = None  # Optional column widths in pixels
+    step: int = 1  # Step number for progressive display
 
 
 @dataclass
@@ -133,12 +154,14 @@ class ColumnBreak:
     """
 
 
-Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, SpriteBlock, TableBlock, ColumnBreak]
+Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, CanvasBlock, SpriteBlock, TableBlock, ColumnBreak]
 
 
 @dataclass
 class Slide:
-    blocks: List[Block] = field(default_factory=list)
+    """A single slide in the presentation."""
+    blocks: List[Block]
+    step: int = 0  # Current step for progressive display (0 = show all)
 
     @property
     def two_column(self) -> bool:

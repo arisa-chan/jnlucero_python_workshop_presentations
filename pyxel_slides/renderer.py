@@ -22,7 +22,7 @@ import pyxel
 from .assets.fonts import FontSet
 from .dither import dither_to_palette, fit_dimensions, pillow_available
 from .highlight import role_to_color, tokenize_lines
-from .ir import CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
+from .ir import CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
 from .mathtext import matplotlib_available, render_math
 from .theme import Theme
 
@@ -94,6 +94,9 @@ def _flatten(runs: List[TextRun]) -> List[Tuple[str, TextRun]]:
     """Expand TextRun list into (char, style_run) pairs."""
     flat: list[Tuple[str, TextRun]] = []
     for r in runs:
+        if r.newline:
+            # Insert a newline character for explicit line breaks
+            flat.append(("\n", r))
         for ch in r.text:
             flat.append((ch, r))
     return flat
@@ -506,6 +509,8 @@ class SlideRenderer:
                 y = self._draw_imageblock(block, x, y, max_w)
             elif isinstance(block, MathBlock):
                 y = self._draw_mathblock(block, x, y, max_w)
+            elif isinstance(block, CanvasBlock):
+                y = self._draw_canvasblock(block, x, y, max_w)
             elif isinstance(block, SpriteBlock):
                 y = self._draw_spriteblock(block, x, y, max_w)
             elif isinstance(block, TableBlock):
@@ -516,14 +521,22 @@ class SlideRenderer:
         pad = self.theme.padding
         budget = reveal_budget
 
+        # Filter blocks based on current step for progressive display
+        if slide.step > 0:
+            # Show only blocks with step <= current step
+            blocks_to_draw = [b for b in slide.blocks if getattr(b, 'step', 1) <= slide.step]
+        else:
+            # step = 0 means show all blocks
+            blocks_to_draw = slide.blocks
+
         # Locate a ColumnBreak, if any.
         col_break_idx = next(
-            (i for i, b in enumerate(slide.blocks) if isinstance(b, ColumnBreak)), -1
+            (i for i, b in enumerate(blocks_to_draw) if isinstance(b, ColumnBreak)), -1
         )
 
         if col_break_idx < 0:
             # Single-column layout.
-            self._draw_blocks(slide.blocks, pad, pad, self.width - 2 * pad, budget)
+            self._draw_blocks(blocks_to_draw, pad, pad, self.width - 2 * pad, budget)
             return
 
         # Two-column layout.
@@ -531,8 +544,8 @@ class SlideRenderer:
         col_w = (self.width - 2 * pad - gap) // 2
         full_w = self.width - 2 * pad
 
-        pre_blocks = slide.blocks[:col_break_idx]
-        post_blocks = slide.blocks[col_break_idx + 1:]
+        pre_blocks = blocks_to_draw[:col_break_idx]
+        post_blocks = blocks_to_draw[col_break_idx + 1:]
 
         # Leading Heading blocks span the full width above both columns.
         n_headings = next(
@@ -663,18 +676,29 @@ class SlideRenderer:
         f = self.fonts
         font, fw, fh = f.body, f.body_w, f.body_h
 
-        for idx, item_runs in enumerate(lst.items, start=1):
-            bullet = f"{idx}." if lst.ordered else "*"
-            indent = x + fw * (len(bullet) + 1)
+        ordered_counter = lst.start  # tracks the current number for depth-0 ordered items
+
+        for list_idx, item_runs in enumerate(lst.items):
+            depth = lst.depths[list_idx] if list_idx < len(lst.depths) else 0
+            depth_indent = depth * fw * 4  # 4 character-widths of indentation per level
+
+            if lst.ordered and depth == 0:
+                bullet = f"{ordered_counter}."
+                ordered_counter += 1
+            else:
+                bullet = "*"
+
+            item_x = x + depth_indent
+            indent = item_x + fw * (len(bullet) + 1)
             item_max_w = max_w - (indent - x)
 
-            lines = wrap_runs(item_runs, item_max_w, font, fw)
+            lines = wrap_runs(item_runs, max(fw * 4, item_max_w), font, fw)
 
             for li, line_runs in enumerate(lines):
                 if budget == 0:
                     break
                 if li == 0:
-                    _draw_text(x, y, bullet, self.theme.accent, font)
+                    _draw_text(item_x, y, bullet, self.theme.accent, font)
                 _, budget = draw_run_line(
                     line_runs, indent, y,
                     self.theme, font, fw, fh,
@@ -911,6 +935,47 @@ class SlideRenderer:
                 pyxel.pset(img_x + col_idx, iy, col)
 
         return y + img_h + 4
+
+    def _draw_canvasblock(self, cb: CanvasBlock, x: int, y: int, max_w: int) -> int:
+        """Draw a CanvasBlock as a clipped offscreen Pyxel image."""
+        canvas = cb.canvas
+        pixels = canvas.rasterize()
+        img_h = len(pixels)
+        img_w = len(pixels[0]) if img_h else 0
+        if img_w <= 0 or img_h <= 0:
+            return y
+
+        img = pyxel.Image(img_w, img_h)
+        for row_idx, row in enumerate(pixels):
+            for col_idx, col in enumerate(row):
+                img.pset(col_idx, row_idx, col)
+
+        for cmd in canvas.text_commands:
+            if not cmd.points:
+                continue
+            tx, ty = cmd.points[0]
+            img.text(tx, ty, cmd.text, cmd.color)
+
+        scale = max(0.1, float(cb.scale))
+        available_h = max(1, self.height - y - self.theme.padding)
+        if img_w * scale > max_w:
+            scale = max_w / img_w
+        if img_h * scale > available_h:
+            scale = min(scale, available_h / img_h)
+        scale = max(0.1, scale)
+
+        drawn_w = max(1, int(round(img_w * scale)))
+        drawn_h = max(1, int(round(img_h * scale)))
+
+        if cb.align == "left":
+            canvas_x = x
+        elif cb.align == "right":
+            canvas_x = x + max(0, max_w - drawn_w)
+        else:
+            canvas_x = x + max(0, (max_w - drawn_w) // 2)
+
+        pyxel.blt(canvas_x, y, img, 0, 0, img_w, img_h, scale=scale)
+        return y + drawn_h + 4
 
     def _draw_codeblock(self, cb: CodeBlock, x: int, y: int, max_w: int) -> int:
         """Draw a syntax-highlighted code panel with a line-number gutter."""

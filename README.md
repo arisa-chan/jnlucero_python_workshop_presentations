@@ -58,9 +58,54 @@ If a `<deck>.pyxres` file exists next to your `.md`, it's auto-loaded.
 | Paragraph | Wrapped body text |
 | `- item` / `1. item` | Bulleted / numbered list |
 | ```` ``` ```` fences | Code block (monochrome panel; syntax highlighting coming in Phase 3) |
+| ```` ```pyxel-canvas ```` | Pixel canvas for points, lines, curves, filled areas, and text |
+| ```` ```pyxel-graph ```` | Function plot rendered into a canvas |
 
 Inline styling (`**bold**`, `*italic*`, links, images, math) parses but renders
 as plain text in Phase 1.
+
+## Canvas and Graph blocks
+
+Use a `pyxel-canvas` fence for small 16-color diagrams:
+
+````markdown
+```pyxel-canvas
+width=220
+height=120
+bg=9
+border=14
+line 10 100 210 20 color=2
+curve 20,100 80,10 140,10 200,100 color=4 steps=48
+area 40,85 90,45 140,85 fill=12 color=2
+text 12 10 "Canvas demo" color=1
+```
+````
+
+Use a `pyxel-graph` fence to plot math expressions into a canvas. Quote
+expressions when they contain spaces.
+
+````markdown
+```pyxel-graph
+width=260
+height=140
+x=-6.28,6.28
+y=-1.5,1.5
+grid=true
+plot sin(x) color=2
+plot cos(x) color=5
+shade_under sin(x) baseline=0 color=12 x=0,3.14
+```
+````
+
+The same primitives are available from Python:
+
+```python
+from pyxel_slides import Canvas, Graph
+
+canvas = Canvas(width=220, height=120, bg=9, border=14)
+graph = Graph(canvas, x_min=-5, x_max=5, y_min=-2, y_max=2, grid=True)
+graph.plot("x^2 - 1", color=2).draw()
+```
 
 ## Creating a `.pyxres` sprite sheet for your deck
 
