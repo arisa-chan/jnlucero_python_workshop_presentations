@@ -22,6 +22,18 @@ def test_section_title_detection():
     assert slides[0].title == "Big Title"
 
 
+def test_heading_br_preserved_for_h1_h2_h3():
+    md = "# Big<br/>Title\n\n## Page<br>Title\n\n### Small<br />Heading\n"
+    slides = parse_markdown(md)
+    blocks = slides[0].blocks
+    assert isinstance(blocks[0], Heading)
+    assert blocks[0].text == "Big\nTitle"
+    assert isinstance(blocks[1], Heading)
+    assert blocks[1].text == "Page\nTitle"
+    assert isinstance(blocks[2], Heading)
+    assert blocks[2].text == "Small\nHeading"
+
+
 def test_paragraph_runs_plain():
     md = "## Topic\n\nHello world.\n\n- one\n- two\n- three\n"
     slides = parse_markdown(md)
@@ -146,4 +158,3 @@ def test_body_char_count_ignores_column_break():
     slides = parse_markdown(md)
     # "Left" = 4, "Right" = 5 → total 9 (ColumnBreak contributes 0)
     assert slides[0].body_char_count() == 9
-

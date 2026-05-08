@@ -2,69 +2,155 @@
 
 A Markdown-driven retro presentation engine built on [Pyxel](https://github.com/kitao/pyxel).
 
-This repository is following a phased build plan. **Phase 1** (this commit) ships:
+`pyxel-slides` turns a Markdown deck into a pixel-art presentation with
+keyboard navigation, hot reload, themed palettes, syntax-highlighted code,
+dithered images, math rendering, custom canvas/graph blocks, sprites, tables,
+two-column layouts, incremental reveal, presenter tools, and PNG export.
 
-- Markdown parser → slide IR (headings, paragraphs, lists, fenced code blocks)
-- Game Boy DMG palette (4 shades, 16-slot)
-- Section-title slides (`#` centered, large) and page-title slides (`##` top-left, large)
-- Slide breaks on `---` only
-- Pyxel app with keyboard navigation, slide counter, progress bar, and hot reload
+The example deck in `examples/demo.md` is the PUP Mathematics Gradient 2026
+Python workshop presentation.
 
-Later phases add: BDF fonts, syntax-highlighted code panels, image dithering,
-LaTeX math via `mathtext`, clickable hyperlinks, sprite/animation directives,
-multi-column layout, and an overview mode.
+## Features
+
+- Markdown decks with `---` slide breaks, H1 section-title slides, H2 page-title slides, headings, paragraphs, ordered lists, bullet lists, and fenced code.
+- Styled inline text: `**bold**`, `*italic*`, inline `` `code` ``, hard line breaks, inline links, and inline math.
+- Clickable hyperlinks: hover shows the URL in the status bar, left-click opens the link in the default browser.
+- Code panels with line numbers and optional Pygments syntax highlighting.
+- Local and remote image blocks, resized and Floyd-Steinberg dithered into the active 16-color palette.
+- Display math via Matplotlib mathtext, plus inline math rendered at text height when optional dependencies are installed.
+- Pipe tables with header styling and alternating row backgrounds.
+- Two-column slide layout with a standalone `|||` separator.
+- Incremental reveal with `<!-- incremental -->` or `<!-- step -->` comments.
+- `pyxel-canvas` blocks for points, lines, curves, filled areas, rectangles, and text.
+- `pyxel-graph` blocks for safe one-variable math plots, grids, axes, and shaded regions.
+- `pyxel-sprite` blocks that render static or animated sprites from a `.pyxres` resource file.
+- Built-in themes: `vscode_light` (default), `gameboy`, and `gradient`.
+- Downloaded BDF fonts with a built-in Pyxel 4x6 fallback.
+- Presenter chrome: slide counter, progress bar, presenter timer, overview grid, and hot reload.
+- Export mode that renders every slide to `slide_NNN.png`.
 
 ## Install
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 ```
 
-## Run the demo
+For the full rendering experience, install optional dependencies too:
+
+```bash
+pip install -e ".[full]"
+```
+
+The `full` extra enables Pygments syntax highlighting, Pillow image handling and
+PNG export, and Matplotlib math rendering. For development and tests:
+
+```bash
+pip install -e ".[full,dev]"
+```
+
+## Run
 
 ```bash
 pyxel-slides examples/demo.md
 ```
 
-Optional flags:
+Useful options:
 
 ```bash
+pyxel-slides examples/demo.md --theme gradient
 pyxel-slides examples/demo.md --resolution 480x270 --fps 60
+pyxel-slides examples/demo.md --title "Python Workshop"
 pyxel-slides examples/demo.md --pyxres examples/demo.pyxres
+pyxel-slides examples/demo.md --typewriter
+pyxel-slides examples/demo.md --no-hot-reload
+pyxel-slides examples/demo.md --no-fonts
+pyxel-slides examples/demo.md --export-dir exported-slides
 ```
 
-If a `<deck>.pyxres` file exists next to your `.md`, it's auto-loaded.
+The default resolution is `384x216`.
+If a `<deck>.pyxres` file exists next to the Markdown file, it is loaded
+automatically. The first normal run may download BDF fonts into
+`~/.cache/pyxel_slides/fonts/`; pass `--no-fonts` to use Pyxel's built-in font.
 
 ## Controls
 
-| Key | Action |
+| Key / input | Action |
 | --- | --- |
-| Right / Space / PgDn / Enter | Next slide |
-| Left / PgUp / Backspace | Previous slide |
+| Right / Space / PgDn / Enter | Next incremental step, then next slide |
+| Left / PgUp / Backspace | Previous incremental step, then previous slide |
+| Down / Up | Step forward / backward, crossing slides at the ends |
 | Home / End | First / last slide |
 | R | Reload Markdown from disk |
-| Q / Esc | Quit |
+| O | Open overview grid |
+| Up / Down in overview | Scroll overview rows |
+| Click a slide in overview | Jump to that slide |
+| T | Reset presenter timer |
+| Hover a link | Show URL in the status bar |
+| Left-click a link | Open URL in the default browser |
+| Esc | Close overview, or quit outside overview |
+| Q | Quit |
 
-## Markdown rules (Phase 1)
+## Markdown
+
+Slide breaks are explicit: only `---` starts a new slide. A `##` heading creates
+a page title, but it does not split the deck.
+
+````markdown
+# Section Title
+
+Optional subtitle text.
+
+---
+
+## Page Title
+
+This is a paragraph with **bold**, *italic*, `code`, [a link](https://example.com),
+and inline math $x^2 + y^2 = z^2$.
+
+<!-- incremental -->
+- This appears on the next step.
+- Nested list indentation is preserved.
+
+|||
+
+![Image alt](../picture_python_logo.png?scale=1.2)
+
+---
+
+## Code
+
+```python
+def greet(name: str) -> None:
+    print(f"Hello, {name}")
+```
+````
+
+Supported Markdown and block syntax:
 
 | Source | Rendered as |
 | --- | --- |
 | `---` | Slide break |
-| `# Title` (alone on slide) | Section-title slide, centered, very large |
-| `## Title` | Page title, top-left, large, with accent underline |
-| `### Title` | Subheading |
-| Paragraph | Wrapped body text |
-| `- item` / `1. item` | Bulleted / numbered list |
-| ```` ``` ```` fences | Code block (monochrome panel; syntax highlighting coming in Phase 3) |
-| ```` ```pyxel-canvas ```` | Pixel canvas for points, lines, curves, filled areas, and text |
-| ```` ```pyxel-graph ```` | Function plot rendered into a canvas |
+| `# Title` | Section-title slide |
+| `## Title` | Page title with accent underline |
+| `### Title` and lower | Subheadings |
+| Paragraphs | Wrapped styled text |
+| `- item` / `1. item` | Bullet and numbered lists |
+| `` `code` `` | Inline code pill |
+| `[text](url)` | Clickable hyperlink |
+| `$...$` | Inline math |
+| `$$...$$` | Display math block |
+| `![alt](path.png)` | Dithered image block |
+| `![alt](path.png?scale=1.5)` | Image block with scale factor |
+| Markdown pipe table | Rendered table |
+| `|||` on its own paragraph | Two-column break |
+| `<!-- incremental -->` / `<!-- step -->` | Increment following blocks to the next reveal step |
+| ```` ```pyxel-canvas ```` | Pixel canvas diagram |
+| ```` ```pyxel-graph ```` | Function graph canvas |
+| ```` ```pyxel-sprite ```` | Pyxel image-bank sprite |
 
-Inline styling (`**bold**`, `*italic*`, links, images, math) parses but renders
-as plain text in Phase 1.
-
-## Canvas and Graph blocks
+## Canvas Blocks
 
 Use a `pyxel-canvas` fence for small 16-color diagrams:
 
@@ -74,15 +160,24 @@ width=220
 height=120
 bg=9
 border=14
+scale=1
+align=center
 line 10 100 210 20 color=2
 curve 20,100 80,10 140,10 200,100 color=4 steps=48
 area 40,85 90,45 140,85 fill=12 color=2
+rect 152 62 42 28 color=5 fill=13
 text 12 10 "Canvas demo" color=1
 ```
 ````
 
-Use a `pyxel-graph` fence to plot math expressions into a canvas. Quote
-expressions when they contain spaces.
+Supported commands include `point`, `line`, `polyline` / `path`, `curve`,
+`area` / `polygon`, `rect`, and `text`.
+
+## Graph Blocks
+
+Use a `pyxel-graph` fence to plot safe one-variable math expressions into a
+canvas. The graph expression language allows numeric constants, `x`, arithmetic
+operators, and functions from Python's `math` module.
 
 ````markdown
 ```pyxel-graph
@@ -94,6 +189,7 @@ grid=true
 plot sin(x) color=2
 plot cos(x) color=5
 shade_under sin(x) baseline=0 color=12 x=0,3.14
+shade_between upper=cos(x) lower=sin(x) color=13 x=-1.57,1.57
 ```
 ````
 
@@ -104,46 +200,106 @@ from pyxel_slides import Canvas, Graph
 
 canvas = Canvas(width=220, height=120, bg=9, border=14)
 graph = Graph(canvas, x_min=-5, x_max=5, y_min=-2, y_max=2, grid=True)
-graph.plot("x^2 - 1", color=2).draw()
+graph.plot("x^2 - 1", color=2).shade_under("sin(x)", color=12).draw()
 ```
 
-## Creating a `.pyxres` sprite sheet for your deck
+## Sprites
 
-Pyxel ships a built-in resource editor. Run:
+Pyxel resource files (`.pyxres`) can hold image-bank sprites for a deck. Create
+or edit one with Pyxel's resource editor:
 
 ```bash
 pyxel edit examples/demo.pyxres
 ```
 
-That opens the editor and creates the file on save. Once present, it will be
-auto-loaded by `pyxel-slides`. Phase 7 will introduce HTML-comment directives
-for spawning sprites/animations on specific slides, e.g.:
+Once the `.pyxres` exists beside the deck, `pyxel-slides` auto-loads it. You can
+also pass one explicitly with `--pyxres`.
 
-```html
-<!-- pyxel: sprite actor=cat x=200 y=150 anim=walk -->
+````markdown
+```pyxel-sprite
+img=0
+u=0
+v=0
+w=16
+h=16
+scale=2
+colkey=0
+frames=4
+frame_w=16
+anim_fps=8
+```
+````
+
+Sprite fields:
+
+| Field | Meaning |
+| --- | --- |
+| `img` | Pyxel image bank index |
+| `u`, `v` | Source position in the image bank |
+| `w`, `h` | Source sprite size |
+| `scale` | Draw scale |
+| `colkey` | Transparent palette index; omit or use `-1` for no transparency |
+| `frames` | Number of animation frames in a horizontal strip |
+| `frame_w` | Width of one animation frame; defaults to `w` |
+| `anim_fps` | Animation rate |
+
+## Export
+
+Render every slide to PNG and quit:
+
+```bash
+pyxel-slides examples/demo.md --theme gradient --export-dir exported-slides
 ```
 
-## Resolution
+Files are written as:
 
-Default is **384×216** (16:9), Pyxel's universally-supported landscape maximum.
-Pyxel 2.x builds may accept larger sizes (try `--resolution 480x270` or
-`600x338`); pyxel-slides will pass them through unchanged.
-
-## Project layout
-
+```text
+exported-slides/
+  slide_000.png
+  slide_001.png
+  slide_002.png
 ```
+
+PNG export requires Pillow, so use `pip install -e ".[full]"`.
+
+## Python API
+
+The package exposes the parser, IR objects, renderer, app, themes, drawing
+helpers, and optional-dependency probes:
+
+```python
+from pathlib import Path
+
+from pyxel_slides import GRADIENT, Canvas, Graph, SlidesApp, parse_markdown
+
+slides = parse_markdown(Path("examples/demo.md").read_text(encoding="utf-8"))
+
+canvas = Canvas(width=120, height=80).line(0, 0, 119, 79, color=2)
+graph = Graph(Canvas(width=120, height=80), x_min=-3, x_max=3).plot("sin(x)")
+
+app = SlidesApp(Path("examples/demo.md"), theme=GRADIENT, width=480, height=270)
+app.run()
+```
+
+## Project Layout
+
+```text
 pyxel_slides/
-  __init__.py
-  app.py        # Pyxel App: window, input, navigation
-  cli.py        # `pyxel-slides` CLI entry point
-  ir.py         # Slide / Block dataclasses
-  parser.py     # Markdown → IR
-  renderer.py   # IR → Pyxel draw calls
-  theme.py      # Game Boy palette + theme
+  app.py          # Pyxel window, input, navigation, timer, overview, export
+  canvas.py       # Canvas and Graph primitives
+  cli.py          # pyxel-slides command-line entry point
+  dither.py       # Image resizing and Floyd-Steinberg dithering
+  highlight.py    # Pygments token mapping
+  ir.py           # Slide/block dataclasses
+  mathtext.py     # Matplotlib mathtext rasterization
+  parser.py       # Markdown to slide IR
+  renderer.py     # Slide IR to Pyxel draw calls
+  theme.py        # Built-in palettes and theme roles
+  assets/fonts.py # BDF font download/cache/loading
 examples/
   demo.md
 tests/
-  test_parser.py
+  test_*.py
 pyproject.toml
 ```
 

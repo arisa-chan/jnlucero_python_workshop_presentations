@@ -431,47 +431,68 @@ class SlideRenderer:
         lg_font, lgw, lgh = f.heading_lg, f.heading_lg_w, f.heading_lg_h
 
         # Render logo at the top if present
+        pad = self.theme.padding
         logo_height = 0
         if logo_block:
-            pad = self.theme.padding
             max_logo_w = self.width - 2 * pad
             max_logo_h = self.height // 3  # logo can take up to 1/3 of slide height
             logo_height = self._draw_imageblock(logo_block, pad, pad, max_logo_w) - pad
 
-        title_w = _text_width(title, lg_font, lgw)
+        title_lines = title.split("\n") if title else [""]
+        title_max_w = self.width - 2 * pad
+        title_gap = self.theme.line_spacing
 
         if lg_font is None:
             # Use pixel-doubling trick for the built-in font.
             scale = 4
-            while scale > 1 and len(title) * BUILTIN_GLYPH_W * scale > self.width - 2 * self.theme.padding:
+            while scale > 1:
+                title_w = max(
+                    (len(line) * BUILTIN_GLYPH_W * scale for line in title_lines),
+                    default=0,
+                )
+                if title_w <= title_max_w:
+                    break
                 scale -= 1
-            title_w = len(title) * BUILTIN_GLYPH_W * scale
             lgh = BUILTIN_GLYPH_H * scale
-            x = (self.width - title_w) // 2
+            title_block_h = len(title_lines) * lgh + max(0, len(title_lines) - 1) * title_gap
             # Position title: center vertically, accounting for logo
             available_height = self.height - logo_height
-            y = logo_height + (available_height - lgh) // 2
-            _draw_text_scaled_builtin(x, y, title, self.theme.eff_heading, scale)
+            y = logo_height + (available_height - title_block_h) // 2
+            for line in title_lines:
+                title_w = len(line) * BUILTIN_GLYPH_W * scale
+                x = (self.width - title_w) // 2
+                _draw_text_scaled_builtin(x, y, line, self.theme.eff_heading, scale)
+                y += lgh + title_gap
         else:
-            if title_w > self.width - 2 * self.theme.padding:
-                # Truncate with ellipsis.
-                while title_w > self.width - 2 * self.theme.padding and title:
-                    title = title[:-1]
-                    title_w = _text_width(title + "...", lg_font, lgw)
-                title += "..."
-                title_w = _text_width(title, lg_font, lgw)
-            x = (self.width - title_w) // 2
+            fitted_lines: list[str] = []
+            for line in title_lines:
+                fitted = line
+                title_w = _text_width(fitted, lg_font, lgw)
+                if title_w > title_max_w:
+                    # Truncate each explicit title line with ellipsis.
+                    while fitted and _text_width(fitted + "...", lg_font, lgw) > title_max_w:
+                        fitted = fitted[:-1]
+                    if fitted:
+                        fitted += "..."
+                    elif _text_width("...", lg_font, lgw) <= title_max_w:
+                        fitted = "..."
+                fitted_lines.append(fitted)
+            title_lines = fitted_lines
+            title_block_h = len(title_lines) * lgh + max(0, len(title_lines) - 1) * title_gap
             # Position title: center vertically, accounting for logo
             available_height = self.height - logo_height
-            y = logo_height + (available_height - lgh) // 2
-            _draw_text(x, y, title, self.theme.eff_heading, lg_font)
+            y = logo_height + (available_height - title_block_h) // 2
+            for line in title_lines:
+                title_w = _text_width(line, lg_font, lgw)
+                x = (self.width - title_w) // 2
+                _draw_text(x, y, line, self.theme.eff_heading, lg_font)
+                y += lgh + title_gap
 
         if subtitle_runs:
             md_font, mdw, mdh = f.heading_md, f.heading_md_w, f.heading_md_h
-            pad = self.theme.padding
             sub_max_w = self.width - 2 * pad
             sub_lines = wrap_runs(subtitle_runs, sub_max_w, md_font, mdw)
-            sy = y + lgh + 8
+            sy = y - title_gap + 8
             for sub_line_runs in sub_lines:
                 line_text = "".join(r.text for r in sub_line_runs)
                 lw = _text_width(line_text, md_font, mdw)
@@ -575,22 +596,10 @@ class SlideRenderer:
             if font is None:
                 # Built-in font: pixel-double and wrap at max_w.
                 scale = 3
-                max_chars = max(1, max_w // (BUILTIN_GLYPH_W * scale))
-                words = h.text.split()
-                lines: list[str] = []
-                cur = ""
-                for word in words:
-                    candidate = (cur + " " + word).strip()
-                    if len(candidate) <= max_chars:
-                        cur = candidate
-                    else:
-                        if cur:
-                            lines.append(cur)
-                        cur = word
-                if cur:
-                    lines.append(cur)
+                lines_runs = wrap_runs(plain(h.text), max_w, font, BUILTIN_GLYPH_W * scale)
                 lh = BUILTIN_GLYPH_H * scale
-                for line in lines:
+                for line_runs in lines_runs:
+                    line = "".join(r.text for r in line_runs)
                     lw = len(line) * BUILTIN_GLYPH_W * scale
                     x_head = (self.width - lw) // 2
                     _draw_text_scaled_builtin(x_head, y, line, col, scale)
@@ -617,17 +626,24 @@ class SlideRenderer:
             font, fw, fh = None, BUILTIN_GLYPH_W, BUILTIN_GLYPH_H
             col = self.theme.accent
 
-        lines = wrap_runs(plain(h.text), max_w, font, fw)
+        scale = 2 if h.level <= 3 else 1
+        line_h = fh
+        wrap_glyph_w = fw
+        if font is None:
+            line_h = BUILTIN_GLYPH_H * scale
+            wrap_glyph_w = BUILTIN_GLYPH_W * scale
+
+        lines = wrap_runs(plain(h.text), max_w, font, wrap_glyph_w)
         for line_runs in lines:
+            line_text = "".join(r.text for r in line_runs)
             if font is None:
-                scale = 2 if h.level <= 3 else 1
-                _draw_text_scaled_builtin(x, y, h.text, col, scale)
+                _draw_text_scaled_builtin(x, y, line_text, col, scale)
             else:
                 cx = x
                 for run in line_runs:
                     _draw_text(cx, y, run.text, col, font)
                     cx += _text_width(run.text, font, fw)
-            y += fh + self.theme.line_spacing
+            y += line_h + self.theme.line_spacing
 
         if h.level == 2:
             pyxel.rect(x, y, max_w, 1, self.theme.accent)

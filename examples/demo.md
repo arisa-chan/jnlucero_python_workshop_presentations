@@ -1,7 +1,7 @@
-# Python Workshop: Initialize
+# PUP Mathematics Gradient 2026<br/>Python Workshop: Initialize
 
-**PUP Mathematics Gradient**
-*May 9, 2026*
+Engr. Jaydee N. Lucero<br/>
+May 9, 2026
 
 ---
 
@@ -10,13 +10,12 @@
 - *Senior Structural Engineer I* (2021-present), Abinales Associates Engineers + Consultants
 - *Part-time Review Instructor* (2019-present), Review Innovations
 - *Associate Member* (2022-present), Association of Structural Engineers of the Philippines, Inc.
-- *Member* (2022-present), Philippine Society for Engineering Education
 - *MS Civil Engineering (Structural Engineering) student* (2024-present), University of the Philippines Diliman
 - `Pythonista since August 2024`
 
 |||
 
-![Jaydee Lucero](../picture_aboutme.png?scale=1.4)
+![Jaydee Lucero](../picture_aboutme.png?scale=1.3)
 
 ---
 
@@ -83,6 +82,8 @@
 - Python is open[-source].
 
 |||
+<!-- incremental -->
+A C program to determine the maximum value in an array
 
 ```c
 #include <stdio.h>
@@ -101,6 +102,9 @@ int main(void) {
     return 0;
 }
 ```
+
+<!-- incremental -->
+Equivalent Python program
 
 ```python
 arr = [3, 1, 6, 4]
@@ -167,8 +171,7 @@ col_widths=80,300
 import numpy as np
 ```
 <!-- incremental -->
-*for* loops and list comprehensions are slow when creating array-like objects.\
-This line should be on a new line.
+*for* loops and list comprehensions are slow when creating array-like objects.
 <!-- incremental -->
 ```python
 import time
@@ -449,7 +452,7 @@ print(roots)    # [4.50822753e-14 8.76726215e-01]
 ---
 ## The `scipy` library
 ### Solution to #2
-
+<!-- incremental -->
 *scipy*'s `scipy.integrate` contains many methods for numerical integration.
 <!-- incremental -->
 - trapezoidal rule: `I = (h/2)(y_0 + 2y_1 + ... + 2y_(n-1) + y_n)`
@@ -619,19 +622,19 @@ print(sustainable[["Year", "Annual Growth Rate (%)"]])
 
 ```python
 ph_population["Annual Increase"] = ph_population["Population"].diff()/ \
-                                   ph_population["Year"].diff()
+                                                            ph_population["Year"].diff()
 ```
 <!-- incremental -->
 `.shift()` shifts the values in a column by a specified number of periods.
 ```python
 ph_population["Calculated Rate (%)"] = ph_population["Annual Increase"]/ \
-                                       ph_population["Population"].shift(1)*100
+                                              ph_population["Population"].shift(1) * 100
 ```
 <!-- incremental -->
 Show only the last two rows.
 ```python
 print(ph_population[["Year", "Population", "Annual Increase", 
-                     "Calculated Rate (%)"]][-2:])
+                                                           "Calculated Rate (%)"]][-2:])
 ```
 <!-- incremental -->
 | Year | Population | Annual Increase | Calculated Rate (%) |
@@ -692,7 +695,6 @@ ax.set_title("Philippine Population (PSA Census Data)")  # Set plot title
 <!-- incremental -->
 Several plots can be placed in a single figure using `plt.subplots()`.
 ```python
-# Scatter plots
 fig, ax = plt.subplots(1, 4)                 # Set up 4 subplots in a row
 fig.set_size_inches(24, 6)                   # Set the overall figure size
 

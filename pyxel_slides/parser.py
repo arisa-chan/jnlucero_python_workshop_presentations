@@ -437,7 +437,12 @@ def _parse_inline(token) -> List[TextRun]:
 
 def _plain_text(token) -> str:
     """Flatten an inline token to plain text (used for headings)."""
-    return "".join(r.text for r in _parse_inline(token))
+    parts: list[str] = []
+    for run in _parse_inline(token):
+        if run.newline:
+            parts.append("\n")
+        parts.append(run.text)
+    return "".join(parts)
 
 
 def _extract_image(inline_token) -> Optional[tuple[str, str, float]]:
