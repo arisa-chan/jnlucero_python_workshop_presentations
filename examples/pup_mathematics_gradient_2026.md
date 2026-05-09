@@ -739,6 +739,35 @@ ax.legend()
 
 ---
 
+## The `pandas` library
+### EXTRA: Regression analysis
+
+<!-- incremental -->
+`scipy.optimize.curve_fit()` does not have a direct function to calculate R^2 values. So, we have to construct it ourselves.
+
+<!-- incremental -->
+```python
+# Calculate R^2 value
+def r_squared(y_actual, y_calculated) :
+    residuals = y_actual - y_calculated
+    ss_res = np.sum(residuals**2)
+    ss_tot = np.sum((y_actual - np.mean(y_actual))**2)
+  
+    return 1 - ss_res/ss_tot
+
+# Linear curve
+r_squared_linear = r_squared(population, lin_curve(year, *lin_params))
+print(rf"R^2 = {r_squared_linear:.2f} for linear curve")
+
+# Power curve
+r_squared_power = r_squared(population, pow_curve(year, *pow_params))
+print(rf"R^2 = {r_squared_power:.2f} for power curve")
+```
+<!-- incremental -->
+An alternative to *scipy* for regression analysis is *scikit-learn*.
+
+---
+
 # Part 4
 ** A famous math example **
 
@@ -843,6 +872,26 @@ text 20 142 "inside=34/42  pi~3.24" color=1
 8. Join a community (e.g. Reddit, Discord, community groups, etc).
 <!-- incremental -->
 9. Continue learning.
+
+---
+
+## Closing
+
+This presentation was created using a heavily modified version of [Pyxel slides](https://github.com/shimizukawa/pyxel-slide-pyasia-2026), which I learned at PythonAsia 2026 from the presentation of [Takayuki Shimizukawa](https://github.com/shimizukawa). Special thanks to Shimizukawa-sensei for creating such an amazing tool!
+
+`Contact me`
+
+- Email: [jaydee.lucero@gmail.com](mailto:jaydee.lucero@gmail.com)
+- Facebook: [facebook.com/jaydee.lucero](https://www.facebook.com/jaydee.lucero)
+- Linkedin: [linkedin.com/in/jaydee-lucero-977070200](https://www.linkedin.com/in/jaydee-lucero-977070200)
+- Github: [github.com/arisa-chan](https://github.com/arisa-chan)
+- Website: [engrjaydee.com](https://engrjaydee.com/)
+
+|||
+
+`PDF and source code of presentation`
+
+![Github repository](../qrcode_presentation.png?scale=1.2)
 
 ---
 
