@@ -170,8 +170,10 @@ class Slide:
 
     @property
     def is_section_title(self) -> bool:
-        """A slide whose first non-empty block is an H1 is a section-title slide."""
+        """A slide whose first non-logo block is an H1 is a section-title slide."""
         for b in self.blocks:
+            if isinstance(b, ImageBlock):
+                continue
             if isinstance(b, Heading):
                 return b.level == 1
             return False

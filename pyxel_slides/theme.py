@@ -5,6 +5,8 @@ Phase 5+: VS Code Light theme — 16 distinct colours covering syntax
 highlighting, UI chrome, and layout roles.
 Phase 9+: Gradient theme — inspired by the "Rising Along the Gradient"
 event poster: deep purple background, lavender text, violet/pink/gold accents.
+Phase 10+: Arcade Space theme — inspired by the Python Workshop O-Day poster:
+starfield navy, chunky black outlines, rocket blues, and hot yellow/orange type.
 """
 
 from __future__ import annotations
@@ -236,6 +238,68 @@ GRADIENT = Theme(
 
 
 # --------------------------------------------------------------------------- #
+# Arcade Space theme  (Python Workshop O-Day poster palette)
+# --------------------------------------------------------------------------- #
+#
+# Colours sampled by eye from the supplied retro workshop poster:
+#   Background    #0B1A33   Primary text       #FFF4D6
+#   Arcade yellow #FFE34A   Muted blue         #6F91B8
+#   Red-orange    #FF3D13   Solar orange       #FF9F2A
+#   Pixel green   #50B83C   Sky blue           #5BA9E8
+#   Rocket cyan   #8BD4D9   Black panel        #05070D
+#   Title yellow  #FFF069   Deep red           #D32922
+#   Highlight bg  #245A9A   Code pill bg       #102142
+#   Outline black #000000   Star white         #FFFFFF
+
+def _arcade_space_palette() -> List[int]:
+    return [
+        0x0B1A33,  #  0  COL_BG       – deep starfield navy
+        0xFFF4D6,  #  1  COL_FG       – warm off-white text
+        0xFFE34A,  #  2  COL_ACCENT   – arcade yellow chrome
+        0x6F91B8,  #  3  COL_MUTED    – muted distant-blue secondary text
+        0xFF3D13,  #  4  COL_KEYWORD  – hot red-orange title stripe
+        0xFF9F2A,  #  5  COL_STRING   – solar orange planet tone
+        0x50B83C,  #  6  COL_COMMENT  – pixel green accent
+        0x5BA9E8,  #  7  COL_NUMBER   – bright earth/space blue
+        0x8BD4D9,  #  8  COL_BUILTIN  – rocket glass cyan
+        0x05070D,  #  9  COL_PANEL_BG – chunky black code panel
+        0xFFF069,  # 10  COL_HEADING  – bright poster-title yellow
+        0xD32922,  # 11  COL_SPECIAL  – deep comic red
+        0x245A9A,  # 12  COL_HILIGHT  – saturated blue highlight bg
+        0x102142,  # 13  COL_CPILL    – dark blue inline-code pill
+        0x000000,  # 14  COL_BORDER   – heavy pixel-art outline black
+        0xFFFFFF,  # 15  COL_ALT      – star white / high contrast
+    ]
+
+
+ARCADE_SPACE = Theme(
+    name="arcade_space",
+    palette=_arcade_space_palette(),
+    bg=COL_BG,              # 0  – deep starfield navy
+    fg=COL_FG,              # 1  – warm off-white
+    accent=COL_ACCENT,      # 2  – arcade yellow
+    muted=COL_MUTED,        # 3  – muted distant-blue
+    # syntax
+    keyword=COL_KEYWORD,    # 4  – red-orange keywords
+    string_col=COL_STRING,  # 5  – solar orange strings
+    comment_col=COL_COMMENT,# 6  – pixel green comments
+    number_col=COL_NUMBER,  # 7  – bright blue numbers
+    builtin_col=COL_BUILTIN,# 8  – rocket cyan builtins
+    code_fg=COL_FG,         # 1  – warm off-white code text
+    # UI
+    panel_bg=COL_PANEL_BG,  # 9  – black arcade panel
+    heading=COL_HEADING,    # 10 – poster-title yellow headings
+    link=COL_NUMBER,        # 7  – bright blue links
+    code_pill=COL_CPILL,    # 13 – dark blue code pill
+    code_pill_fg=COL_FG,    # 1  – off-white text on pill
+    highlight_bg=COL_HILIGHT,# 12 – saturated blue highlight
+    highlight_fg=COL_ALT,   # 15 – star-white highlight text
+    padding=8,
+    line_spacing=2,
+)
+
+
+# --------------------------------------------------------------------------- #
 # Classic Game Boy DMG theme  (retained as an alternative)
 # --------------------------------------------------------------------------- #
 
@@ -275,4 +339,3 @@ GAMEBOY = Theme(
     padding=8,
     line_spacing=2,
 )
-

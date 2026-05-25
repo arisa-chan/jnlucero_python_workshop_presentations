@@ -1,5 +1,5 @@
 from pyxel_slides.parser import parse_markdown
-from pyxel_slides.ir import CodeBlock, ColumnBreak, Heading, ListBlock, Paragraph, TextRun
+from pyxel_slides.ir import CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, Paragraph, TextRun
 
 
 def test_slide_breaks_on_hr_only():
@@ -18,6 +18,15 @@ def test_section_title_detection():
     md = "# Big Title\n\nSome subtitle\n"
     slides = parse_markdown(md)
     assert len(slides) == 1
+    assert slides[0].is_section_title
+    assert slides[0].title == "Big Title"
+
+
+def test_section_title_detection_allows_leading_logo():
+    md = "![Logo](logo.png?scale=0.5)\n\n# Big Title\n\nSome subtitle\n"
+    slides = parse_markdown(md)
+    assert len(slides) == 1
+    assert isinstance(slides[0].blocks[0], ImageBlock)
     assert slides[0].is_section_title
     assert slides[0].title == "Big Title"
 

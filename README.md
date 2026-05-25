@@ -24,7 +24,7 @@ Python workshop presentation.
 - `pyxel-canvas` blocks for points, lines, curves, filled areas, rectangles, and text.
 - `pyxel-graph` blocks for safe one-variable math plots, grids, axes, and shaded regions.
 - `pyxel-sprite` blocks that render static or animated sprites from a `.pyxres` resource file.
-- Built-in themes: `vscode_light` (default), `gameboy`, and `gradient`.
+- Built-in themes: `vscode_light` (default), `gameboy`, `gradient`, and `arcade_space`.
 - Downloaded BDF fonts with a built-in Pyxel 4x6 fallback.
 - Presenter chrome: slide counter, progress bar, presenter timer, overview grid, and hot reload.
 - Export mode that renders every slide to `slide_NNN.png`.
@@ -60,6 +60,7 @@ Useful options:
 
 ```bash
 pyxel-slides examples/demo.md --theme gradient
+pyxel-slides examples/demo.md --theme arcade_space
 pyxel-slides examples/demo.md --resolution 480x270 --fps 60
 pyxel-slides examples/demo.md --title "Python Workshop"
 pyxel-slides examples/demo.md --pyxres examples/demo.pyxres
@@ -98,6 +99,18 @@ Slide breaks are explicit: only `---` starts a new slide. A `##` heading creates
 a page title, but it does not split the deck.
 
 ````markdown
+![Workshop logo](../picture_python_logo.png?scale=0.45)
+
+# Workshop Title
+
+## Workshop Subtitle
+
+Presenter Name<br/>
+Position / Work<br/>
+Date
+
+---
+
 # Section Title
 
 Optional subtitle text.
@@ -129,9 +142,14 @@ def greet(name: str) -> None:
 
 Supported Markdown and block syntax:
 
+The first slide gets a dedicated cover layout when it starts with an optional
+logo image followed by an H1. Use this order: logo, H1 title, H2 subtitle,
+then name, position/work, and date as separate lines.
+
 | Source | Rendered as |
 | --- | --- |
 | `---` | Slide break |
+| First slide: image + `# Title` + `## Subtitle` + details | Cover slide |
 | `# Title` | Section-title slide |
 | `## Title` | Page title with accent underline |
 | `### Title` and lower | Subheadings |
@@ -270,14 +288,14 @@ helpers, and optional-dependency probes:
 ```python
 from pathlib import Path
 
-from pyxel_slides import GRADIENT, Canvas, Graph, SlidesApp, parse_markdown
+from pyxel_slides import ARCADE_SPACE, Canvas, Graph, SlidesApp, parse_markdown
 
 slides = parse_markdown(Path("examples/demo.md").read_text(encoding="utf-8"))
 
 canvas = Canvas(width=120, height=80).line(0, 0, 119, 79, color=2)
 graph = Graph(Canvas(width=120, height=80), x_min=-3, x_max=3).plot("sin(x)")
 
-app = SlidesApp(Path("examples/demo.md"), theme=GRADIENT, width=480, height=270)
+app = SlidesApp(Path("examples/demo.md"), theme=ARCADE_SPACE, width=480, height=270)
 app.run()
 ```
 

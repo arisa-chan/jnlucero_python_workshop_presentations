@@ -1,12 +1,17 @@
 """Unit tests for the renderer's pure-logic helpers (no Pyxel window required)."""
 
 from pyxel_slides.ir import TextRun
-from pyxel_slides.renderer import _compress, _flatten, wrap_runs, wrap_text
+from pyxel_slides.parser import parse_markdown
+from pyxel_slides.renderer import _compress, _flatten, _title_page_parts, wrap_runs, wrap_text
 
 
 def _runs(*specs) -> list[TextRun]:
     """Build a run list from (text, **kwargs) tuples."""
     return [TextRun(text, **kw) for text, kw in specs]
+
+
+def _line_text(line: list[TextRun]) -> str:
+    return "".join(run.text for run in line)
 
 
 # --------------------------------------------------------------------------- #
@@ -19,6 +24,46 @@ def test_wrap_runs_plain_text():
     lines = wrap_runs(runs, max_width_px=80, font=None, glyph_w=4)
     flat = ["".join(r.text for r in line).rstrip() for line in lines]
     assert flat == ["the quick brown fox", "jumps over the lazy", "dog"]
+
+
+def test_title_page_parts_cover_order():
+    md = """![Logo](logo.png?scale=0.5)
+
+# Big Title
+
+## Smaller Subtitle
+
+Presenter Name<br/>
+Position / Work<br/>
+May 27, 2026
+"""
+    parts = _title_page_parts(parse_markdown(md)[0])
+    assert parts.logo is not None
+    assert parts.logo.path == "logo.png"
+    assert parts.title == "Big Title"
+    assert _line_text(parts.subtitle_runs) == "Smaller Subtitle"
+    assert [_line_text(line) for line in parts.detail_lines] == [
+        "Presenter Name",
+        "Position / Work",
+        "May 27, 2026",
+    ]
+
+
+def test_title_page_parts_accepts_h1_hardbreak_subtitle():
+    md = """# Big Title<br/>Smaller Subtitle
+
+Presenter Name<br/>
+Position / Work<br/>
+May 27, 2026
+"""
+    parts = _title_page_parts(parse_markdown(md)[0])
+    assert parts.title == "Big Title"
+    assert _line_text(parts.subtitle_runs) == "Smaller Subtitle"
+    assert [_line_text(line) for line in parts.detail_lines] == [
+        "Presenter Name",
+        "Position / Work",
+        "May 27, 2026",
+    ]
 
 
 def test_wrap_runs_preserves_style_across_wrap():

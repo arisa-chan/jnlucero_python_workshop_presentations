@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pyxel_slides.cli import _THEMES, _parse_resolution, main
-from pyxel_slides.theme import GAMEBOY, VSCODE_LIGHT
+from pyxel_slides.theme import ARCADE_SPACE, GAMEBOY, VSCODE_LIGHT
 
 
 # --------------------------------------------------------------------------- #
@@ -29,12 +29,20 @@ def test_themes_registry_contains_gameboy():
     assert "gameboy" in _THEMES
 
 
+def test_themes_registry_contains_arcade_space():
+    assert "arcade_space" in _THEMES
+
+
 def test_themes_registry_vscode_light_value():
     assert _THEMES["vscode_light"] is VSCODE_LIGHT
 
 
 def test_themes_registry_gameboy_value():
     assert _THEMES["gameboy"] is GAMEBOY
+
+
+def test_themes_registry_arcade_space_value():
+    assert _THEMES["arcade_space"] is ARCADE_SPACE
 
 
 # --------------------------------------------------------------------------- #
@@ -100,6 +108,22 @@ def test_main_theme_gameboy(tmp_path):
         main([str(md), "--theme", "gameboy"])
 
     assert captured["theme"] is GAMEBOY
+
+
+def test_main_theme_arcade_space(tmp_path):
+    md = _make_md(tmp_path)
+    captured = {}
+
+    def fake_app(*, theme, **kwargs):
+        captured["theme"] = theme
+        obj = MagicMock()
+        obj.run = MagicMock()
+        return obj
+
+    with patch("pyxel_slides.cli.SlidesApp", side_effect=lambda **kw: fake_app(**kw)):
+        main([str(md), "--theme", "arcade_space"])
+
+    assert captured["theme"] is ARCADE_SPACE
 
 
 def test_main_theme_vscode_light_explicit(tmp_path):

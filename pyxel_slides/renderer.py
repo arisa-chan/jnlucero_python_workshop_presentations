@@ -12,7 +12,7 @@ Phase 2 (retained): BDF fonts, styled TextRun rendering, typewriter reveal.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 # (x, y, width, height, url) — pixel bounding box of a rendered hyperlink.
 LinkArea = Tuple[int, int, int, int, str]
@@ -240,6 +240,108 @@ def wrap_runs(
     return result
 
 
+class TitlePageParts(NamedTuple):
+    """Structured content used by the first-slide cover renderer."""
+
+    logo: Optional[ImageBlock]
+    title: str
+    subtitle_runs: List[TextRun]
+    detail_lines: List[List[TextRun]]
+
+
+def _copy_run_text(run: TextRun, text: str) -> TextRun:
+    return TextRun(
+        text=text,
+        bold=run.bold,
+        italic=run.italic,
+        highlight=run.highlight,
+        code=run.code,
+        url=run.url,
+        math=run.math,
+    )
+
+
+def _split_run_lines(runs: List[TextRun]) -> List[List[TextRun]]:
+    """Split styled runs on hard breaks/newline chars, dropping empty lines."""
+    lines: List[List[TextRun]] = [[]]
+    for run in runs:
+        if run.newline:
+            lines.append([])
+            continue
+
+        parts = run.text.split("\n")
+        for idx, part in enumerate(parts):
+            if idx > 0:
+                lines.append([])
+            if part:
+                lines[-1].append(_copy_run_text(run, part))
+
+    cleaned: List[List[TextRun]] = []
+    for line in lines:
+        if not "".join(run.text for run in line).strip():
+            continue
+        line = line[:]
+        if line:
+            line[0] = _copy_run_text(line[0], line[0].text.lstrip())
+            line[-1] = _copy_run_text(line[-1], line[-1].text.rstrip())
+        line = [run for run in line if run.text]
+        if line:
+            cleaned.append(line)
+    return cleaned
+
+
+def _title_page_parts(slide: Slide) -> TitlePageParts:
+    """Extract logo/title/subtitle/name-position-date fields from a cover slide.
+
+    Intended Markdown order:
+      image logo, H1 title, H2 subtitle, then three detail lines.
+    For older decks, ``# Title<br/>Subtitle`` is also accepted.
+    """
+    logo: Optional[ImageBlock] = None
+    h1_text = ""
+    h2_runs: List[TextRun] = []
+    paragraph_lines: List[List[TextRun]] = []
+    seen_h1 = False
+
+    for block in slide.blocks:
+        if isinstance(block, ImageBlock) and logo is None and not seen_h1:
+            logo = block
+            continue
+
+        if isinstance(block, Heading):
+            if block.level == 1 and not h1_text:
+                h1_text = block.text.strip()
+                seen_h1 = True
+            elif seen_h1 and block.level == 2 and not h2_runs:
+                h2_runs = plain(block.text.strip())
+            elif seen_h1 and block.text.strip():
+                paragraph_lines.append(plain(block.text.strip()))
+            continue
+
+        if isinstance(block, Paragraph) and seen_h1:
+            paragraph_lines.extend(_split_run_lines(block.runs))
+
+    title_lines = [line.strip() for line in h1_text.splitlines() if line.strip()]
+    title = "\n".join(title_lines)
+    subtitle_runs = h2_runs
+    detail_lines = paragraph_lines
+
+    if not subtitle_runs:
+        if len(title_lines) > 1:
+            title = title_lines[0]
+            subtitle_runs = plain("\n".join(title_lines[1:]))
+        elif detail_lines:
+            subtitle_runs = detail_lines[0]
+            detail_lines = detail_lines[1:]
+
+    return TitlePageParts(
+        logo=logo,
+        title=title,
+        subtitle_runs=subtitle_runs,
+        detail_lines=detail_lines[:3],
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Single-line styled run drawing  (respects typewriter budget)
 # --------------------------------------------------------------------------- #
@@ -402,14 +504,120 @@ class SlideRenderer:
 
     # --- public ----------------------------------------------------------- #
 
-    def draw(self, slide: Slide, reveal_budget: int = -1) -> None:
+    def draw(
+        self,
+        slide: Slide,
+        reveal_budget: int = -1,
+        *,
+        first_slide: bool = False,
+    ) -> None:
         """Draw the slide. reveal_budget = -1 means show everything."""
         self.links = []  # reset hit-areas for this frame
         pyxel.cls(self.theme.bg)
-        if slide.is_section_title:
+        if first_slide and slide.is_section_title:
+            self._draw_title_page(slide)
+        elif slide.is_section_title:
             self._draw_section_title(slide)
         else:
             self._draw_content(slide, reveal_budget)
+
+    # --- first-page title slide ------------------------------------------ #
+
+    def _draw_centered_runs(
+        self,
+        runs: List[TextRun],
+        y: int,
+        max_w: int,
+        font: Optional[Any],
+        glyph_w: int,
+        glyph_h: int,
+        col: int,
+        *,
+        scale: int = 1,
+        gap_after: int = 4,
+    ) -> int:
+        if not runs:
+            return y
+
+        if font is None:
+            scale = max(1, scale)
+            line_h = BUILTIN_GLYPH_H * scale
+            wrap_w = BUILTIN_GLYPH_W * scale
+            lines = wrap_runs(runs, max_w, None, wrap_w)
+            for line_runs in lines:
+                line_text = "".join(run.text for run in line_runs)
+                line_w = len(line_text) * BUILTIN_GLYPH_W * scale
+                x = max(self.theme.padding, (self.width - line_w) // 2)
+                _draw_text_scaled_builtin(x, y, line_text, col, scale)
+                y += line_h + self.theme.line_spacing
+            return y + gap_after
+
+        lines = wrap_runs(runs, max_w, font, glyph_w)
+        for line_runs in lines:
+            line_text = "".join(run.text for run in line_runs)
+            line_w = _text_width(line_text, font, glyph_w)
+            x = max(self.theme.padding, (self.width - line_w) // 2)
+            _draw_text(x, y, line_text, col, font)
+            y += glyph_h + self.theme.line_spacing
+        return y + gap_after
+
+    def _draw_title_page(self, slide: Slide) -> None:
+        parts = _title_page_parts(slide)
+        pad = self.theme.padding
+        max_w = self.width - 2 * pad
+        f = self.fonts
+        y = pad
+
+        if parts.logo is not None:
+            logo_max_h = max(24, self.height // 5)
+            y = self._draw_imageblock(parts.logo, pad, y, max_w, max_h=logo_max_h)
+            y += 4
+        else:
+            y += max(0, self.height // 8 - pad)
+
+        y = self._draw_centered_runs(
+            plain(parts.title),
+            y,
+            max_w,
+            f.heading_lg,
+            f.heading_lg_w,
+            f.heading_lg_h,
+            self.theme.eff_heading,
+            scale=4,
+            gap_after=6,
+        )
+
+        if parts.subtitle_runs:
+            y = self._draw_centered_runs(
+                parts.subtitle_runs,
+                y,
+                max_w,
+                f.heading_sm,
+                f.heading_sm_w,
+                f.heading_sm_h,
+                self.theme.accent,
+                scale=2,
+                gap_after=8,
+            )
+
+        for idx, line_runs in enumerate(parts.detail_lines):
+            if idx == 0 and f.bold is not None:
+                font, fw, fh = f.bold, f.bold_w, f.bold_h
+            else:
+                font, fw, fh = f.body, f.body_w, f.body_h
+
+            col = self.theme.fg if idx == 0 else self.theme.muted
+            y = self._draw_centered_runs(
+                line_runs,
+                y,
+                max_w,
+                font,
+                fw,
+                fh,
+                col,
+                scale=1,
+                gap_after=2,
+            )
 
     # --- section-title slide ---------------------------------------------- #
 
@@ -732,7 +940,14 @@ class SlideRenderer:
 
         return y + 4, budget
 
-    def _draw_imageblock(self, ib: ImageBlock, x: int, y: int, max_w: int) -> int:
+    def _draw_imageblock(
+        self,
+        ib: ImageBlock,
+        x: int,
+        y: int,
+        max_w: int,
+        max_h: Optional[int] = None,
+    ) -> int:
         """Draw a dithered image block, centered horizontally.
 
         On first call the image is loaded + dithered and cached by path.
@@ -741,10 +956,11 @@ class SlideRenderer:
         or the file cannot be opened.
         """
         pad = self.theme.padding
-        max_img_h = self.height // 2  # don't let one image eat the whole slide
+        max_img_h = max_h or self.height // 2  # don't let one image eat the whole slide
 
-        # Include scale in cache key so different scales are cached separately
-        cache_key = f"{ib.path}:{ib.scale}"
+        # Include layout bounds in the cache key so logos and content images can
+        # use different fitted sizes without clobbering each other.
+        cache_key = f"{ib.path}:{ib.scale}:{max_w}:{max_img_h}"
         if cache_key not in self._image_cache:
             is_url = ib.path.startswith(("http://", "https://"))
 

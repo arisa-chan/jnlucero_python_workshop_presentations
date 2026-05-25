@@ -272,7 +272,11 @@ class SlidesApp:
         if self._exporting:
             if self._export_frame < len(self.slides):
                 slide = self.slides[self._export_frame]
-                self.renderer.draw(slide, reveal_budget=-1)
+                self.renderer.draw(
+                    slide,
+                    reveal_budget=-1,
+                    first_slide=self._export_frame == 0,
+                )
                 self._try_save_frame()
                 self._export_frame += 1
                 if self._export_frame >= len(self.slides):
@@ -294,7 +298,11 @@ class SlidesApp:
 
         slide = self.slides[self.index]
         slide.step = self._current_step  # Set current step before rendering
-        self.renderer.draw(slide, reveal_budget=self._reveal_chars)
+        self.renderer.draw(
+            slide,
+            reveal_budget=self._reveal_chars,
+            first_slide=self.index == 0,
+        )
 
         # Shimizukawa-style transition overlay (drawn on top of the new slide).
         if self._trans_rate > 0 and self._old_img is not None:

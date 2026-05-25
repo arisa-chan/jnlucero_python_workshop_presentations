@@ -3,7 +3,7 @@
 from .canvas import Canvas, Graph, UnsafeExpressionError, compile_math_expression
 from .ir import Block, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
 from .parser import parse_markdown
-from .theme import Theme, GAMEBOY, VSCODE_LIGHT, GRADIENT
+from .theme import Theme, ARCADE_SPACE, GAMEBOY, VSCODE_LIGHT, GRADIENT
 from .app import SlidesApp
 from .renderer import SlideRenderer, draw_run_line, _hit_test
 from .assets.fonts import FontSet, ensure_fonts
@@ -31,6 +31,7 @@ __all__ = [
     "compile_math_expression",
     "parse_markdown",
     "Theme",
+    "ARCADE_SPACE",
     "GAMEBOY",
     "VSCODE_LIGHT",
     "GRADIENT",
