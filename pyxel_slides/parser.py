@@ -22,7 +22,7 @@ from markdown_it import MarkdownIt
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 
 from .canvas import Canvas, Graph, UnsafeExpressionError
-from .ir import Block, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
+from .ir import Block, BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
 
 
 # --------------------------------------------------------------------------- #
@@ -368,6 +368,47 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
 # --------------------------------------------------------------------------- #
 # Inline token -> List[TextRun]
 # --------------------------------------------------------------------------- #
+# ==mark== inline rule for text highlighting
+# --------------------------------------------------------------------------- #
+
+def _add_mark_rule(md: MarkdownIt) -> None:
+    """Register a markdown-it inline rule for ``==mark==`` highlighted text.
+
+    Emits ``mark_open`` / ``mark_close`` tokens and re-tokenizes the inner
+    content, so nested bold/italic/underline all work inside ``==...==``.
+    """
+    def _mark(state, silent):
+        pos = state.pos
+        src = state.src
+        if pos + 1 >= state.posMax:
+            return False
+        if src[pos] != '=' or src[pos + 1] != '=':
+            return False
+        start = pos + 2
+        found = src.find("==", start)
+        if found == -1 or found >= state.posMax:
+            return False
+        if silent:
+            return True
+        # Opening token.
+        token = state.push("mark_open", "mark", 1)
+        token.markup = "=="
+        # Tokenize the content between the == delimiters.
+        old_pos, old_max = state.pos, state.posMax
+        state.pos = start
+        state.posMax = found
+        state.md.inline.tokenize(state)
+        state.pos = old_pos
+        state.posMax = old_max
+        # Closing token.
+        token = state.push("mark_close", "mark", -1)
+        token.markup = "=="
+        state.pos = found + 2
+        return True
+    md.inline.ruler.push("mark", _mark)
+
+
+# --------------------------------------------------------------------------- #
 
 def _parse_inline(token) -> List[TextRun]:
     """Parse an inline token's children into a styled TextRun list."""
@@ -378,6 +419,8 @@ def _parse_inline(token) -> List[TextRun]:
     runs: list[TextRun] = []
     bold = 0
     italic = 0
+    highlight = 0
+    underline = 0
     link_url = ""
 
     for child in children:
@@ -395,11 +438,17 @@ def _parse_inline(token) -> List[TextRun]:
             link_url = (child.attrs or {}).get("href", "")
         elif t == "link_close":
             link_url = ""
+        elif t == "mark_open":
+            highlight += 1
+        elif t == "mark_close":
+            highlight = max(0, highlight - 1)
         elif t == "text":
             runs.append(TextRun(
                 text=child.content,
                 bold=bold > 0,
                 italic=italic > 0,
+                highlight=highlight > 0,
+                underline=underline > 0,
                 url=link_url,
             ))
         elif t == "code_inline":
@@ -418,18 +467,22 @@ def _parse_inline(token) -> List[TextRun]:
             if child.content.strip():
                 runs.append(TextRun(text=child.content, math=True))
         elif t == "softbreak":
-            runs.append(TextRun(" ", bold=bold > 0, italic=italic > 0, url=link_url))
+            runs.append(TextRun(" ", bold=bold > 0, italic=italic > 0, highlight=highlight > 0, underline=underline > 0, url=link_url))
         elif t == "hardbreak":
-            runs.append(TextRun("", bold=bold > 0, italic=italic > 0, url=link_url, newline=True))
+            runs.append(TextRun("", bold=bold > 0, italic=italic > 0, highlight=highlight > 0, underline=underline > 0, url=link_url, newline=True))
         elif t == "html_inline":
             # Check if it's a <br> or <br/> tag (from user input)
             if "<br" in child.content:
-                runs.append(TextRun("", bold=bold > 0, italic=italic > 0, url=link_url, newline=True))
+                runs.append(TextRun("", bold=bold > 0, italic=italic > 0, highlight=highlight > 0, url=link_url, newline=True))
+            elif child.content.strip().lower() == "<u>":
+                underline += 1
+            elif child.content.strip().lower() == "</u>":
+                underline = max(0, underline - 1)
         # image / html_inline in mixed content → render alt text as plain run
         elif t == "image":
             alt = "".join(c.content for c in (child.children or []) if c.type == "text")
             if alt:
-                runs.append(TextRun(alt, bold=bold > 0, italic=italic > 0, url=link_url))
+                runs.append(TextRun(alt, bold=bold > 0, italic=italic > 0, highlight=highlight > 0, underline=underline > 0, url=link_url))
         # other token types silently ignored
 
     return runs if runs else [TextRun("")]
@@ -486,6 +539,7 @@ def parse_markdown(source: str) -> List[Slide]:
     md = MarkdownIt("commonmark", {"breaks": True})
     md.enable("table")
     dollarmath_plugin(md, allow_labels=False, allow_digits=False)
+    _add_mark_rule(md)  # enable ==mark== highlighting syntax
     tokens = md.parse(source)
 
     slides: List[Slide] = []
@@ -575,11 +629,13 @@ def parse_markdown(source: str) -> List[Slide]:
                         text=runs[0].text.lstrip(),
                         bold=runs[0].bold, italic=runs[0].italic,
                         highlight=runs[0].highlight, code=runs[0].code, url=runs[0].url,
+                        underline=runs[0].underline,
                     )
                     runs[-1] = TextRun(
                         text=runs[-1].text.rstrip(),
                         bold=runs[-1].bold, italic=runs[-1].italic,
                         highlight=runs[-1].highlight, code=runs[-1].code, url=runs[-1].url,
+                        underline=runs[-1].underline,
                     )
                 # Filter out empty-text runs, but keep newline-only runs (<br/>).
                 runs = [r for r in runs if r.text or r.newline]
@@ -638,8 +694,49 @@ def parse_markdown(source: str) -> List[Slide]:
             i = j + 1
             continue
 
+        if ttype == "blockquote_open":
+            # Collect all inline content from within the blockquote.
+            collected_runs: List[TextRun] = []
+            j = i + 1
+            while j < n and tokens[j].type != "blockquote_close":
+                inner = tokens[j]
+                if inner.type == "inline":
+                    collected_runs.extend(_parse_inline(inner))
+                j += 1
+            # Trim leading/trailing whitespace (same as paragraph handling).
+            if collected_runs:
+                collected_runs[0] = TextRun(
+                    text=collected_runs[0].text.lstrip(),
+                    bold=collected_runs[0].bold, italic=collected_runs[0].italic,
+                    highlight=collected_runs[0].highlight, code=collected_runs[0].code,
+                    url=collected_runs[0].url, underline=collected_runs[0].underline,
+                )
+                collected_runs[-1] = TextRun(
+                    text=collected_runs[-1].text.rstrip(),
+                    bold=collected_runs[-1].bold, italic=collected_runs[-1].italic,
+                    highlight=collected_runs[-1].highlight, code=collected_runs[-1].code,
+                    url=collected_runs[-1].url, underline=collected_runs[-1].underline,
+                )
+            collected_runs = [r for r in collected_runs if r.text or r.newline]
+            if collected_runs:
+                current.blocks.append(BoxBlock(runs=collected_runs, step=current_step))
+            i = j + 1
+            continue
+
         if ttype == "fence":
-            lang = (tok.info or "").strip().split()[0] if (tok.info or "").strip() else ""
+            import re as _re
+            info = (tok.info or "").strip()
+            info_parts = info.split() if info else []
+            lang = info_parts[0] if info_parts else ""
+            highlight_lines: List[int] = []
+            for _part in info_parts[1:]:
+                _m = _re.match(r'(?:hl|highlight)=(.+)', _part)
+                if _m:
+                    try:
+                        highlight_lines = [int(x.strip()) for x in _m.group(1).split(",") if x.strip()]
+                    except ValueError:
+                        highlight_lines = []
+                    break
             if lang == "pyxel-sprite":
                 current.blocks.append(_parse_sprite_block(tok.content))
             elif lang in ("pyxel-canvas", "canvas"):
@@ -648,7 +745,8 @@ def parse_markdown(source: str) -> List[Slide]:
                 current.blocks.append(_parse_graph_block(tok.content, step=current_step))
             else:
                 current.blocks.append(
-                    CodeBlock(code=tok.content.rstrip("\n"), language=lang, step=current_step)
+                    CodeBlock(code=tok.content.rstrip("\n"), language=lang,
+                              step=current_step, highlight_lines=highlight_lines)
                 )
             i += 1
             continue

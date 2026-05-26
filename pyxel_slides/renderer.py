@@ -22,7 +22,7 @@ import pyxel
 from .assets.fonts import FontSet
 from .dither import dither_to_palette, fit_dimensions, pillow_available
 from .highlight import role_to_color, tokenize_lines
-from .ir import CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
+from .ir import BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
 from .mathtext import matplotlib_available, render_math
 from .theme import Theme
 
@@ -113,7 +113,8 @@ def _compress(flat: List[Tuple[str, TextRun]]) -> List[TextRun]:
     def _same(a: TextRun, b: TextRun) -> bool:
         return (a.bold == b.bold and a.italic == b.italic
                 and a.highlight == b.highlight and a.code == b.code
-                and a.url == b.url and a.math == b.math)
+                and a.url == b.url and a.math == b.math
+                and a.underline == b.underline)
 
     for ch, run in flat[1:]:
         if _same(run, ref):
@@ -121,12 +122,12 @@ def _compress(flat: List[Tuple[str, TextRun]]) -> List[TextRun]:
         else:
             result.append(TextRun("".join(chars), bold=ref.bold, italic=ref.italic,
                                   highlight=ref.highlight, code=ref.code, url=ref.url,
-                                  math=ref.math))
+                                  math=ref.math, underline=ref.underline))
             chars = [ch]
             ref = run
     result.append(TextRun("".join(chars), bold=ref.bold, italic=ref.italic,
                            highlight=ref.highlight, code=ref.code, url=ref.url,
-                           math=ref.math))
+                           math=ref.math, underline=ref.underline))
     return result
 
 
@@ -158,7 +159,7 @@ def wrap_runs(
             safe_runs.append(TextRun(
                 r.text.replace(" ", _SPC),
                 bold=r.bold, italic=r.italic, highlight=r.highlight,
-                code=r.code, url=r.url, math=True,
+                code=r.code, url=r.url, math=True, underline=r.underline,
             ))
         else:
             safe_runs.append(r)
@@ -232,7 +233,7 @@ def wrap_runs(
                 fixed.append(TextRun(
                     run.text.replace(_SPC, " "),
                     bold=run.bold, italic=run.italic, highlight=run.highlight,
-                    code=run.code, url=run.url, math=True,
+                    code=run.code, url=run.url, math=True, underline=run.underline,
                 ))
             else:
                 fixed.append(run)
@@ -258,6 +259,7 @@ def _copy_run_text(run: TextRun, text: str) -> TextRun:
         code=run.code,
         url=run.url,
         math=run.math,
+        underline=run.underline,
     )
 
 
@@ -461,7 +463,10 @@ def draw_run_line(
         # --- Draw text ---
         if run.italic and not run.code and not run.math and italic_font is None:
             # Fallback italic: pixel-shear effect.
-            _draw_italic(cx, y, text, col, font, glyph_w, glyph_h, theme.bg)
+            # Use highlight background when the run is highlighted, so the shear
+            # erase step doesn't destroy the highlight pill drawn above.
+            bg_col = theme.eff_highlight_bg if run.highlight else theme.bg
+            _draw_italic(cx, y, text, col, font, glyph_w, glyph_h, bg_col)
         else:
             _draw_text(cx, y, text, col, eff_font)
 
@@ -473,6 +478,10 @@ def draw_run_line(
             pyxel.rect(cx, y + glyph_h, w, 1, theme.eff_link)
             if link_areas is not None:
                 link_areas.append((cx, y, w, glyph_h, run.url))
+
+        if run.underline and not run.url:
+            # 1px underline below the glyph (links already have their own underline).
+            pyxel.rect(cx, y + glyph_h, w, 1, col)
 
         cx += w
         if budget == 0:
@@ -744,6 +753,8 @@ class SlideRenderer:
                 y = self._draw_spriteblock(block, x, y, max_w)
             elif isinstance(block, TableBlock):
                 y = self._draw_tableblock(block, x, y, max_w)
+            elif isinstance(block, BoxBlock):
+                y = self._draw_boxblock(block, x, y, max_w)
         return y, budget
 
     def _draw_content(self, slide: Slide, reveal_budget: int = -1) -> None:
@@ -1115,6 +1126,47 @@ class SlideRenderer:
 
         return y + 4
 
+    def _draw_boxblock(self, bb: BoxBlock, x: int, y: int, max_w: int) -> int:
+        """Draw a bordered text box parsed from a Markdown blockquote (``> text``).
+
+        Renders as a filled rectangle with an accent-colored border outline and
+        the text content inside with padding.  All inline styles (bold, italic,
+        highlight, underline, links) are supported inside the box.
+        """
+        f = self.fonts
+        font, fw, fh = f.body, f.body_w, f.body_h
+        border_px = 1
+        pad = 5  # inner padding between border and text
+
+        inner_w = max_w - (border_px + pad) * 2
+        lines = wrap_runs(bb.runs, inner_w, font, fw)
+        n_lines = max(1, len(lines))
+        line_h = fh + self.theme.line_spacing
+        inner_h = n_lines * line_h - self.theme.line_spacing  # remove trailing gap
+        box_h = inner_h + (border_px + pad) * 2
+
+        # Filled background, then border outline on top.
+        pyxel.rect(x, y, max_w, box_h, self.theme.eff_panel_bg)
+        pyxel.rectb(x, y, max_w, box_h, self.theme.accent)
+
+        # Draw each wrapped line of text.
+        ty = y + border_px + pad
+        tx = x + border_px + pad
+        for line_runs in lines:
+            draw_run_line(
+                line_runs, tx, ty,
+                self.theme, font, fw, fh,
+                budget=-1,
+                link_areas=self.links,
+                math_cache=self._image_cache,
+                palette_rgb=self.theme.palette_as_rgb,
+                bold_font=self.fonts.bold,
+                italic_font=self.fonts.italic,
+            )
+            ty += line_h
+
+        return y + box_h + 4
+
     def _draw_mathblock(self, mb: MathBlock, x: int, y: int, max_w: int) -> int:
         """Draw a display-math block, centered horizontally.
 
@@ -1258,6 +1310,9 @@ class SlideRenderer:
 
         for i, spans in enumerate(display_lines):
             ty = y + pad + i * line_h
+            # Highlight background strip for annotated lines (hl=N,M in fence info).
+            if (i + 1) in cb.highlight_lines:
+                pyxel.rect(x, ty - 1, max_w, line_h + 1, self.theme.eff_highlight_bg)
             # Line number: right-aligned within the digit columns, muted colour.
             lineno = str(i + 1).rjust(n_digits)
             _draw_text(x + pad, ty, lineno, self.theme.muted, font)

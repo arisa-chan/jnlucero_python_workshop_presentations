@@ -29,11 +29,12 @@ class TextRun:
     code: bool = False       # inline ``code`` span
     url: str = ""            # non-empty = hyperlink (click handler comes in Phase 6)
     math: bool = False       # inline ``$...$`` math span (expr stored in .text)
+    underline: bool = False  # underlined text (from ``<u>text</u>``)
     newline: bool = False    # explicit line break (from hardbreak token)
 
     @property
     def is_plain(self) -> bool:
-        return not (self.bold or self.italic or self.highlight or self.code or self.url or self.math)
+        return not (self.bold or self.italic or self.highlight or self.code or self.url or self.math or self.underline)
 
 
 def plain(text: str) -> List[TextRun]:
@@ -73,6 +74,7 @@ class CodeBlock:
     code: str
     language: str = ""
     step: int = 1  # Step number for progressive display
+    highlight_lines: List[int] = field(default_factory=list)  # 1-indexed lines to highlight
 
 
 @dataclass
@@ -106,6 +108,17 @@ class TableBlock:
     headers: List[str]
     rows: List[List[str]]
     col_widths: Optional[List[int]] = None  # Optional column widths in pixels
+    step: int = 1  # Step number for progressive display
+
+
+@dataclass
+class BoxBlock:
+    """A bordered text box parsed from a Markdown blockquote (``> text``).
+
+    Renders as a pixel-art rectangle with a filled background and accent-colored
+    border outline, with the text content inside (supports all inline styles).
+    """
+    runs: List[TextRun]
     step: int = 1  # Step number for progressive display
 
 
@@ -154,7 +167,7 @@ class ColumnBreak:
     """
 
 
-Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, CanvasBlock, SpriteBlock, TableBlock, ColumnBreak]
+Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, CanvasBlock, SpriteBlock, TableBlock, BoxBlock, ColumnBreak]
 
 
 @dataclass

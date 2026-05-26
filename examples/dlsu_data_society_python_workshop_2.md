@@ -26,21 +26,13 @@ May 27, 2026
 
 ## Outline
 
-### Part One: Some Python stuff (90 minutes)
-
-1. Why write in Python?
+1. Writing in Python: why?
 2. Writing Python syntax
-3. Writing code Pythonically: *list comprehensions*
-4. Writing faster code: *lists* vs. *sets* vs. *dictionaries* vs. *numpy arrays*
+3. Writing code Pythonically
+4. Writing faster code
 5. Writing functions that take in functions
 6. Writing code using the "Big 3" libraries
-   - *numpy*
-   - *pandas*
-   - *matplotlib*
-
-### Part Two: Some Python examples (40 minutes)
-
-7. Example: rebound hammer test results
+7. Writing the next steps
 
 ---
 
@@ -141,19 +133,19 @@ print(max(arr))
 
 |||
 
-`[TIOBE Index, April 2026](https://www.tiobe.com/tiobe-index/)`
+`[TIOBE Index, May 2026](https://www.tiobe.com/tiobe-index/)`
 
 | Rank | Language   | Rating |
 | ---- | --------   | ------ |
-| 1    | Python     | 20.97% |
-| 2    | C          | 12.34% |
-| 3    | C++        | 8.03%  |
-| 4    | Java       | 7.79%  |
-| 5    | C#         | 5.98%  |
-| 6    | Javascript | 3.11%  |
-| 7    | VB         | 3.02%  |
-| 8    | SQL        | 1.75%  |
-| 9    | R          | 1.62%  |
+| 1    | Python     | 19.98% |
+| 2    | C          | 11.55% |
+| 3    | Java       | 7.94%  |
+| 4    | C++        | 7.92%  |
+| 5    | C#         | 5.41%  |
+| 6    | Javascript | 3.08%  |
+| 7    | VB         | 2.90%  |
+| 8    | R          | 1.77%  |
+| 9    | SQL        | 1.57%  |
 
 ---
 
@@ -199,15 +191,16 @@ Variables can hold any type of data possible, some of which are enumerated below
 <!-- incremental -->
 
 ```python
-name         = "Airis"                      # string
-gender       = 'F'                          # character
-age          = 21                           # integer
-money        = 125.36                       # float (decimal number)
-is_single    = True                         # boolean
-has_dogs     = None                         # the None keyword
-siblings     = ["Eris", "Erin", "Erina"]    # list
-siblings_age = (36, 25, 18)                 # tuple
-parents      = {                            # dictionary
+name            = "Airis"                      # string
+gender          = 'F'                          # character
+age             = 21                           # integer
+money           = 125.36                       # float (decimal number)
+is_single       = True                         # boolean
+has_dogs        = None                         # the None keyword
+siblings        = ["Eris", "Erin", "Erina"]    # list
+siblings_age    = (36, 25, 18)                 # tuple
+siblings_gender = {'F', 'F', 'F'}              # set
+parents         = {                            # dictionary
     "mother"        : "Airin",
     "mother_age"    : 50,
     "father"        : "Erik",
@@ -220,19 +213,27 @@ parents      = {                            # dictionary
 
 ## Program output
 
+<!-- incremental -->
 Texts and variable values can be displayed using the `print` function.
 
+<!-- incremental -->
 ```python
 print("Hello world!")    # displays "Hello world!"
 print(money)             # displays the value of the variable money
 ```
 
+<!-- incremental -->
 They can even be combined together using either
+
+<!-- incremental -->
 - the `.format` function
+<!-- incremental -->
 ```python
 print("Hello world! I'm {0} and my money is Php{1}.".format(name, money))
 ```
+<!-- incremental -->
 - or, f-strings
+<!-- incremental -->
 ```python
 print(f"Hello world! I'm {name} and my money is Php{money}.")
 ```
@@ -240,8 +241,10 @@ print(f"Hello world! I'm {name} and my money is Php{money}.")
 
 ## Mathematics and library imports
 
+<!-- incremental -->
 You can do some simple math calculations in Python.
 
+<!-- incremental -->
 ```python
 print(3 + 5 - 3 * 5)    # addition, subtraction, multiplication
 print(3 / 5)            # float division    (3/5 = 0.6)
@@ -252,21 +255,28 @@ print(max(3, 5))        # maximum value
 print(min(3, 5))        # minimum value
 ```
 
+<!-- incremental -->
 More advanced math functions require the `math` library. Import and use using
 
+<!-- incremental -->
 ```python
 import math
 print(math.sqrt(25))    # square root
 ```
 
+<!-- incremental -->
 We can import only select functions from a specific library.
 
+<!-- incremental -->
 ```python
 from math import sqrt   # import just the square root function
 print(sqrt(25))
 ```
 
+<!-- incremental -->
 Or import all functions in that library using
+
+<!-- incremental -->
 ```python
 from math import *      # import everything
 print(sqrt(25))
@@ -276,33 +286,148 @@ print(sqrt(25))
 
 ## Control statements and loops
 
+<!-- incremental -->
 Check multiple conditions using `if...elif...else`.
 
+<!-- incremental -->
 ```python
 age = 29
 
 if age < 18 :
-    print("This person is a minor.")
+    print("A minor.")
 elif 18 <= age < 65 :
-    print("This person is an adult.")
+    print("An adult.")
 else :
-    print("This person is a senior citizen.")
+    print("A senior citizen.") # An adult.
 ```
 
+<!-- incremental -->
 Do repetitive operations using loops.
 
+<!-- incremental -->
 ```python
+# Calculate the sum of the first 100
+# positive integers.
 sum = 0
+
 for num in range(1, 101) :
     sum += num
-print(sum)      # 5050, the sum of the first 100 positive integers
+
+print(sum)    # 5050
 ```
 
+|||
+
+<!-- incremental -->
 We can also combine conditions and repetitive operations using `while`.
+
+<!-- incremental -->
+```python
+# Another way to calculate the sum of the
+# first 100 positive integers.
+sum = 0
+
+current_num = 1
+while current_num <= 100 :
+    sum += num
+    current_num += 1
+print(sum)    # 5050
+```
+
+<!-- incremental -->
+or
+
+<!-- incremental -->
+```python
+sum = 0
+
+current_num = 1
+while True :
+    sum += num
+    if current_num > 100 :
+        break
+print(sum)    # 5050
+```
 
 ---
 
-# 3
+## Lists, tuples, dictionaries
+
+<!-- incremental -->
+Accesss the elements in lists and tuples using
+
+<!-- incremental -->
+```python
+# index  0,  1,  2,  3 
+# index -4, -3, -2, -1
+a =    [ 1,  2,  3,  4]
+print(a[1])                      # 2
+print(a[-2])                     # 3
+
+```
+
+<!-- incremental -->
+and for dictionaries,
+
+<!-- incremental -->
+```python
+person = {
+    "name" : "James",
+    "age"  : 41
+}
+print(person["name"])            # James
+```
+
+<!-- incremental -->
+You can also access multiple elements at once using the `:` symbol.
+
+<!-- incremental -->
+```python
+# from index 1 (included) to 3 (excluded)
+print(a[1:3])                    # [2, 3]
+```
+
+|||
+
+<!-- incremental -->
+Modify elements in lists using
+<!-- incremental -->
+```python
+a[1] = 100
+print(a)                # [1, 100, 3, 4]
+```
+<!-- incremental -->
+and in dictionaries using
+<!-- incremental -->
+
+```python
+person["age"] += 1
+print(person["age"])    # 42
+```
+
+<!-- incremental -->
+You can't do that on tuples though since they're immutable.
+
+<!-- incremental -->
+```python
+b = (1, 2, 3, 4, 5)
+b[2] = 100
+# TypeError: 'tuple' object does not 
+# support item assignment
+```
+
+<!-- incremental -->
+Add new elements to lists using
+
+<!-- incremental -->
+```python
+a.append(200)
+print(a)            # [1, 100, 3, 4, 200]
+```
+
+---
+
+# Part 3
 **Write code Pythonically**
 
 ---
@@ -310,15 +435,16 @@ We can also combine conditions and repetitive operations using `while`.
 ## Writing code Pythonically
 
 <!-- incremental -->
-`Example 1` Find the sum of the first 100 positive perfect square numbers.
+==**Example 1**== Find the sum of the first 100 positive perfect square numbers.
 
 <!-- incremental -->
-**Manual computation**
+==Manual computation==
 
-$$\sum_{n=1}^{100} n^2 = \left.\frac{n(n+1)(2n+1)}{6}\right\lvert_{n=100}=\frac{100(100+1)(2\cdot 100 + 1)}{6} = 338350$$
+1^2 + 2^2 + ... + n^2 = n(n + 1)(2n + 1)/6<br/>
+1^2 + 2^2 + ... + 100^2 = 100(100 + 1)[2(100) + 1]/6 = `338350`
 
 <!-- incremental -->
-**Solution 1** using `for` loops
+==Solution 1== using `for` loops
 
 ```python
 total = 0
@@ -327,44 +453,37 @@ for n in range(1, 100 + 1) :
 print(total)
 ```
 
----
-
-## Writing code Pythonically
-
-`Example 1` Find the sum of the first 100 positive perfect square numbers.
-
 <!-- incremental -->
-**Solution 2**
+==Solution 2==
 
 ```python
 print(sum([n**2 for n in range(1, 100 + 1)]))
 ```
 
 <!-- incremental -->
-**List comprehensions**
-
-`[(1) for (2) in (3) if (4)]` generates a list of items generated by expression (1) for each item (2) in the iterable (3) based on conditions set by (4).
+> <u>**List comprehensions**</u><br/>`[(1) for (2) in (3) if (4)]` generates a list of items generated by part (1) for each item (2) in the iterable (3) based on conditions set by (4).
 
 ---
 
 ## Writing code Pythonically
 
-`Example 2` Suppose that we have the following record of transactions in US Dollars. Notice that some transactions are corrupted (the amount is either `None` or negative value). We want to determine the total amount of all valid transactions only, converted to Euros using the conversion 1 US Dollar = 0.85 Euro.
+==**Example 2**== Suppose that we have the following record of transactions in US Dollars. Notice that some transactions are corrupted (the amount is either `None` or negative value). We want to determine the total amount of all valid transactions only, converted to Euros using the conversion 1 US Dollar = 0.85 Euro.
 
 <!-- incremental -->
-**Solution**
+==Solution==
 
 ```python
 transactions_usd = [10.50, None, -5.00, 25.00, 100.00, None, 12.50]
 usd_to_euro = 0.85
 
-total_euros = sum([amount * usd_to_euro for amount in transactions_usd if amount is not None and amount > 0])
+total_euros = sum([amount * usd_to_euro for amount in transactions_usd 
+                    if amount is not None and amount > 0])
 print(total_euros)
 ```
 
 ---
 
-# 4
+# Part 4
 **Write faster code**
 
 ---
@@ -372,13 +491,19 @@ print(total_euros)
 ## Writing faster code
 
 <!-- incremental -->
-**Some ways to make code faster**
+<u>**Some ways to make code faster**</u>
 
 <!-- incremental -->
 - Use `numpy` arrays instead of lists.
+
+<!-- incremental -->
 - Use raw iterator objects instead of lists when using all its contents.
+<!-- incremental -->
 - Use dictionaries instead of lists.
+<!-- incremental -->
 - Use sets instead of lists.
+
+|||
 
 <!-- incremental -->
 *Containment time complexities*
@@ -403,137 +528,75 @@ print(total_euros)
 ## Writing faster code
 
 <!-- incremental -->
-`Example` Suppose that we have the following record of transactions in US Dollars generated from one million random items. Notice that some transactions are corrupted (the amount is either `None` or negative value).
-
-We want to know if a particular transaction value is in the list.
+### Creating lists
 
 <!-- incremental -->
-**Solution** Using lists/tuples.
+```python
+import time
 
+time_start = time.time()
+numbers = [num for num in range(1, int(1e8) + 1)]
+time_end = time.time()
+
+print(f"time = {time_end - time_start:.4f} seconds.")    # 1.6669 seconds
+```
+
+<!-- incremental -->
+### Creating numpy arrays
+
+<!-- incremental -->
 ```python
 import time
 import numpy as np
 
-# Generate one million random transactions and place it inside a list.
-transactions_usd = []
-for _ in range(1000000) :
-  choice = np.random.randint(3)
-  if choice == 0 :
-    transactions_usd.append(None)
-  elif choice == 1 :
-    transactions_usd.append(np.random.randint(100000001)*-0.000001)
-  elif choice == 2 :
-    transactions_usd.append(np.random.randint(100000001)*0.000001)
+time_start = time.time()
+numbers = np.arange(1, int(1e8) + 1)
+time_end = time.time()
 
-item = 67.89        # Find this transaction.
-
-t_i = time.time()   # Start timer
-
-if item in transactions_usd :
-  print(f"Found {item}.")
-else :
-  print(f"Not found.")
-
-t_f = time.time()   # End timer
-
-# Calculate run time.
-print(f"calculation time = {t_f - t_i:.4f} seconds.")
+print(f"time = {time_end - time_start:.4f} seconds.")    # 0.0978 seconds
 ```
+
+<!-- incremental -->
+`About 17 times faster!`
 
 ---
 
 ## Writing faster code
 
 <!-- incremental -->
-`Example` Suppose that we have the following record of transactions in US Dollars generated from one million random items. Notice that some transactions are corrupted (the amount is either `None` or negative value).
-
-We want to know if a particular transaction value is in the list.
+### Finding elements in lists
 
 <!-- incremental -->
-**Solution** Using dictionaries.
-
 ```python
 import time
-import numpy as np
+numbers = [num for num in range(1, int(1e8) + 1)]
 
-# Generate one million random transactions and place it inside a list.
-transactions_usd = []
-for _ in range(1000000) :
-  choice = np.random.randint(3)
-  if choice == 0 :
-    transactions_usd.append(None)
-  elif choice == 1 :
-    transactions_usd.append(np.random.randint(100000001)*-0.000001)
-  elif choice == 2 :
-    transactions_usd.append(np.random.randint(100000001)*0.000001)
-
-# Convert to a dictionary.
-transactions_usd = dict(enumerate(transactions_usd))
-
-item = 67.89        # Find this transaction.
-
-t_i = time.time()   # Start timer
-
-if item in transactions_usd.values() :
-  print(f"Found {item}.")
-else :
-  print(f"Not found.")
-
-t_f = time.time()   # End timer
-
-# Calculate run time.
-print(f"calculation time = {t_f - t_i:.4f} seconds.")
+time_start = time.time()
+number_found = int(1e8) in numbers
+time_end = time.time()
+print(f"time = {time_end - time_start:.4f} seconds.")    # 0.4242 seconds
 ```
+
+<!-- incremental -->
+### Finding elements in sets
+
+<!-- incremental -->
+```python
+import time
+numbers = set([num for num in range(1, int(1e8) + 1)])
+
+time_start = time.time()
+number_found = int(1e8) in numbers
+time_end = time.time()
+print(f"time = {time_end - time_start:.6f} seconds.")    # 0.000005 seconds
+```
+
+<!-- incremental -->
+`About 80,000 times faster!`
 
 ---
 
-## Writing faster code
-
-<!-- incremental -->
-`Example` Suppose that we have the following record of transactions in US Dollars generated from one million random items. Notice that some transactions are corrupted (the amount is either `None` or negative value).
-
-We want to know if a particular transaction value is in the list.
-
-<!-- incremental -->
-**Solution** Using sets.
-
-```python
-import time
-import numpy as np
-
-# Generate one million random transactions and place it inside a list.
-transactions_usd = []
-for _ in range(1000000) :
-  choice = np.random.randint(3)
-  if choice == 0 :
-    transactions_usd.append(None)
-  elif choice == 1 :
-    transactions_usd.append(np.random.randint(100000001)*-0.000001)
-  elif choice == 2 :
-    transactions_usd.append(np.random.randint(100000001)*0.000001)
-
-# Convert to a set.
-transactions_usd = set(transactions_usd)
-
-item = 67.89        # Find this transaction.
-
-# Calculate total of all valid transactions and convert to Euros.
-t_i = time.time()   # Start timer
-
-if item in transactions_usd :
-  print(f"Found {item}.")
-else :
-  print(f"Not found.")
-
-t_f = time.time()   # End timer
-
-# Calculate run time.
-print(f"calculation time = {t_f - t_i:.4f} seconds.")
-```
-
----
-
-# 5
+# Part 5
 **Functions that take in functions**
 
 ---
@@ -541,17 +604,16 @@ print(f"calculation time = {t_f - t_i:.4f} seconds.")
 ## Functions as objects
 
 <!-- incremental -->
-**Functions as objects**
 
-Function *names* can be inputted as arguments in a function.
-
-<!-- incremental -->
-`Example` Solve the equation $e^x = x+5$ using Newton-Raphson method.
+> <u>**Functions as objects**</u><br/>Function *names* can be inputted as arguments in a function.
 
 <!-- incremental -->
-**Solution**
+==**Example 3**== Solve the equation e^x = x + 5 using Newton-Raphson method.
 
-```python
+<!-- incremental -->
+==**Solution**==
+
+```python hl=7
 import math
 
 # The equation, expressed as left - right. This should be equal to zero.
@@ -561,36 +623,41 @@ eqn = lambda x : math.exp(x) - x - 5
 def newton_raphson(func, x0=0, tol=1e-6) :
     xn = x0     # guess value
     h = 1e-6    # marching step for numerical differentiation
-
     # Check if the equation is close to zero.
     while abs(func(xn)) >= tol :
         d_func = (func(xn + h) - func(xn - h))/(2*h)    # derivative
         xn -= func(xn)/d_func                           # new guess value
-
     return xn   # root found
 
-print(newton_raphson(eqn))
+print(newton_raphson(eqn, x0=1))        # 1.936847407229323
 ```
 
 ---
 
-## Functions as objects: applications to pandas
-
+## Functions as objects
 <!-- incremental -->
-`Example` UP Diliman implements the following honorific scholarships based on the general weighted average (GWA) of a student for a given semester.
+### Applications to pandas
+<!-- incremental -->
+
+> <u>**The pandas apply function**</u><br/>`[pandas Series].apply([function])` takes a *pandas* Series, feeds its contents one by one into a function, then returns a new *pandas* Series.
+<!-- incremental -->
+==**Example 4**== UP Diliman implements the following honorific scholarships based on the general weighted average (GWA) of a student for a given semester.
 
 | Item                    | Range                         |
 |:-----------------------:|:-----------------------------:|
-| University Scholar (US) | GWA $\leqslant$ 1.45          |
-| College Scholar (CS)    | 1.45 $<$ GWA $\leqslant$ 1.75 |
-| No scholarship          | GWA $>$ 1.75                  |
+| University Scholar (US) | GWA <= 1.45                   |
+| College Scholar (CS)    | 1.45 < GWA <= 1.75            |
+| No scholarship          | GWA > 1.75                    |
 
-Given a `pandas` dataframe of students and their corresponding GWA for a specific semester, output the honorific scholarship of each student.
+Given a *pandas* DataFrame of students and their corresponding GWA for a specific semester, output the honorific scholarship of each student.
 
-<!-- incremental -->
-**Solution**
+---
 
-```python
+## Functions as objects
+### Applications to pandas
+==**Solution**==
+
+```python hl=17
 import pandas as pd
 
 data = {
@@ -613,204 +680,87 @@ print(data)
 
 ---
 
-# 6
+# Part 6
 **Write code using the "Big 3" libraries**
 
 ---
 
-## The `numpy` library
-
-
-```python
-import numpy as np
-```
-<!-- incremental -->
-*for* loops and list comprehensions are slow when creating array-like objects.
-<!-- incremental -->
-```python
-import time
-
-t_start = time.time()
-result = [x**2 for x in range(1_000_000)]
-t_end = time.time()
-print(round(t_end - t_start, 4))          # 0.1069 seconds
-```
-<!-- incremental -->
-*numpy* arrays can make the same instruction `several times faster`.
-<!-- incremental -->
-```python
-import time
-import numpy as np
-
-t_start = time.time()
-result = np.arange(1_000_000) ** 2
-t_end = time.time()
-print(round(t_end - t_start, 4))          # 0.0213 seconds
-```
-
----
-
 ## The numpy library
 
-### Example 1
-
-Solve the system of linear equations
+<!-- incremental -->
+==**Example 5**== Given the system of linear equations
 
 5x + 3y + 2z = 15<br/>2x - 6y - 7z = -22<br/>4x - 8y + 3z = 9
 
-using
+find the value of x^2 + y^2 + z^2.
 
-1. matrix inverse method,
-2. Cramer's rule, and
-3. *numpy*'s own solver function.
-
----
-
-## The numpy library
-### Solution to #1
+|||
 
 <!-- incremental -->
+==Solution==
 
+<!-- incremental -->
 ```python
 import numpy as np
 
-A = [[5, 3, 2], [2, -6, -7], [4, -8, 3]]
-B = [15, -22, 9]
+A = [[5,  3,  2],   # coefficients matrix
+     [2, -6, -7], 
+     [4, -8,  3]]
+B = [15, -22, 9]    # constants vector
 ```
 
 <!-- incremental -->
+Using matrix inverse method,
 
-Iterators like lists and tuples can be converted to *numpy* arrays.
-
+<!-- incremental -->
 ```python
-A = np.array(A, dtype='float')
-B = np.array(B, dtype='float')
+X = np.linalg.inv(A) @ B
 ```
 
 <!-- incremental -->
-
-Check if the system has a unique solution by finding the rank of A.
-
-```python
-A_rank = np.linalg.matrix_rank(A)   # matrix rank
-print(rf"rank(A) = {A_rank}")       # rank(A) = 3
-```
+or, using *numpy*'s own solver,
 
 <!-- incremental -->
-
-Now, solve the system using `AX = B --> X = A^-1 B`.
-
-```python
-A_inv = np.linalg.inv(A)            # matrix inverse
-X = A_inv @ B                       # matrix multiplication
-print(rf"X = {X} using matrix inverse method.")    
-# X = [1.40570175 0.68640351 2.95614035] using matrix inverse method.
-```
-
----
-
-## The numpy library
-### Solution to #2
-
-<!-- incremental -->
-
-Copy the coefficients matrix A by value.
-
-```python
-A_x = np.copy(A)
-A_y = np.copy(A)
-A_z = np.copy(A)
-```
-
-<!-- incremental -->
-
-Replace each column in the coefficients matrix with the constants vector.
-
-```python
-print(A)        # [[ 5,  3,  2], [  2,  -6,  -7], [4, -8, 3]]
-A_x[:, 0] = B   # [[15,  3,  2], [-22,  -6,  -7], [9, -8, 3]]
-A_y[:, 1] = B   # [[ 5, 15,  2], [  2, -22,  -7], [4,  9, 3]]
-A_z[:, 2] = B   # [[ 5,  3, 15], [  2,  -6, -22], [4, -8, 9]]
-```
-
-<!-- incremental -->
-
-Next, calculate the required determinants.
-
-```python
-D = np.linalg.det(A)            # determinant
-D_x = np.linalg.det(A_x)
-D_y = np.linalg.det(A_y)
-D_z = np.linalg.det(A_z)
-```
-
----
-
-## The numpy library
-### Solution to #2 (continued)
-
-<!-- incremental -->
-
-Now, solve the system using `X = D_x/D, Y = D_y/D, Z = D_z/D`.
-
-```python
-X = np.array([D_x/D, D_y/D, D_z/D], dtype='float')  # solve the system
-print(rf"X = {X} using Cramer's rule.")
-# X = [1.40570175 0.68640351 2.95614035] using Cramer's rule.
-```
-
-<!-- incremental -->
-
-### Solution to #3
-
-<!-- incremental -->
-
-*numpy* also has a function to solve linear systems directly. It uses [LU decomposition](https://www.netlib.org/lapack/explore-html/d8/da6/group__gesv.html) at its base.
-
 ```python
 X = np.linalg.solve(A, B)
-print(rf"X = {X} using numpy's own solver.")
-# X = [1.40570175 0.68640351 2.95614035] using numpy's own solver.
+```
+<!-- incremental -->
+Either way, we have
+
+<!-- incremental -->
+```python
+result = np.sum(X**2)
+print(result)
 ```
 
 ---
 
 ## The numpy library
-### Example 2
 
-The Civil Engineering Licensure Examination has three subjects with codes MSTC, HGE and PSAD. A future engineer is required to take all these three subjects. His/Her overall rating is then calculated according to the formula
+==**Example 6**== The Civil Engineering Licensure Examination has three subjects with codes MSTC, HGE and PSAD. A future engineer is required to take all these three subjects. His/Her overall rating is then calculated according to the formula
 
-$$\text{rating} = 0.35(\text{MSTC}) + 0.30(\text{HGE}) + 0.35(\text{PSAD})$$
+`rating = 0.35 x MSTC + 0.30 x HGE + 0.35 x PSAD`
 
 He/She is said to have passed the exam if the following conditions are satisfied:
 
-- $\text{rating} \geqslant 70$
-- $\text{MSTC, HGE, PSAD} \geqslant 50$
+- rating <u>></u> 70
+- MSTC, HGE, PSAD <u>></u> 50
 
 Given the results from ten students as shown below, determine whether each student has passed the exam.
 
----
-
-## The numpy library
-### Example 2
-
-| Student # | MSTC | HGE | PSAD |
-|:---------:|:----:|:---:|:----:|
-| 1         | 96   | 88  | 90   |
-| 2         | 92   | 85  | 49   |
-| 3         | 89   | 84  | 83   |
-| 4         | 83   | 80  | 75   |
-| 5         | 72   | 83  | 86   |
-| 6         | 66   | 68  | 47   |
-| 7         | 59   | 52  | 56   |
-| 8         | 51   | 63  | 62   |
-| 9         | 42   | 30  | 96   |
-| 10        | 38   | 28  | 58   |
+```python
+# student       1   2   3   4   5   6   7   8   9  10
+scores_MSTC = [96, 92, 89, 83, 72, 66, 59, 51, 42, 38]
+scores_HGE  = [88, 85, 84, 80, 83, 68, 52, 63, 30, 28]
+scores_PSAD = [90, 49, 83, 75, 86, 47, 56, 62, 96, 58]
+```
 
 ---
 
 ## The numpy library
-### Solution to #2 using list comprehensions
+
+<!-- incremental -->
+==Solution 1== using lists
 
 <!-- incremental -->
 
@@ -819,58 +769,27 @@ scores_MSTC = [96, 92, 89, 83, 72, 66, 59, 51, 42, 38]
 scores_HGE = [88, 85, 84, 80, 83, 68, 52, 63, 30, 28]
 scores_PSAD = [90, 49, 83, 75, 86, 47, 56, 62, 96, 58]
 
-rating = [0.35*mstc + 0.30*hge + 0.35*psad for mstc, hge, psad in \
-          zip(scores_MSTC, scores_HGE, scores_PSAD)]
-is_passed = [rating >= 70.0 and mstc >= 50.0 and hge >= 50.0 and \
-             psad >= 50.0 for rating, mstc, hge, psad in \
+rating = [0.35*mstc + 0.30*hge + 0.35*psad \
+          for mstc, hge, psad in zip(scores_MSTC, scores_HGE, scores_PSAD)]
+is_passed = [rating >= 70.0 and mstc >= 50.0 and hge >= 50.0 and psad >= 50.0 \
+             for rating, mstc, hge, psad in \
              zip(rating, scores_MSTC, scores_HGE, scores_PSAD)]
 
 print(rating)
 print(is_passed)
 ```
 
----
+<!-- incremental -->
+> `NOTE` The *zip* function aggregates elements from multiple iterables (like lists, tuples, or strings) into a single iterator of tuples. Each tuple contains elements that share the same index in their original sequences.
 
+---
 ## The numpy library
-### Solution to #2 using pandas `.apply()`
+<!-- incremental -->
+==Solution 2== using *numpy* arrays
 
 <!-- incremental -->
 
-```python
-scores_MSTC = [96, 92, 89, 83, 72, 66, 59, 51, 42, 38]
-scores_HGE = [88, 85, 84, 80, 83, 68, 52, 63, 30, 28]
-scores_PSAD = [90, 49, 83, 75, 86, 47, 56, 62, 96, 58]
-
-import pandas as pd
-
-data = {
-    "MSTC" : scores_MSTC,
-    "HGE"  : scores_HGE,
-    "PSAD" : scores_PSAD
-}
-data = pd.DataFrame(data)
-
-def rating(data) :
-    return 0.35*data["MSTC"] + 0.30*data["HGE"] + 0.35*data["PSAD"]
-
-def is_passed(data) :
-    return data["rating"] >= 70.0 and data["MSTC"] >= 50.0 and data["HGE"] >= 50.0 \
-           and data["PSAD"] >= 50.0
-
-data["rating"] = data.apply(rating, axis=1)
-data["passed?"] = data.apply(is_passed, axis=1)
-
-print(data)
-```
-
----
-
-## The numpy library
-### Solution to #2 using numpy arrays
-
-<!-- incremental -->
-
-```python
+```python hl=11,12,13
 scores_MSTC = [96, 92, 89, 83, 72, 66, 59, 51, 42, 38]
 scores_HGE = [88, 85, 84, 80, 83, 68, 52, 63, 30, 28]
 scores_PSAD = [90, 49, 83, 75, 86, 47, 56, 62, 96, 58]
@@ -891,372 +810,19 @@ print(is_passed)
 
 ---
 
-## The numpy library
-### Advantages of numpy arrays over standard lists
-
-<!-- incremental -->
-- Matrix and vector operations
-<!-- incremental -->
-```python
-import numpy as np
-A = np.array([[1, 3, 6], [-2, 5, -4], [3, -8, -7]], dtype='float')
-A_inv = np.linalg.inv(A)
-print(A_inv)
-```
-<!-- incremental -->
-- Math operations can be applied directly
-```python
-rating = 0.35*scores_MSTC + 0.30*scores_HGE + 0.35*scores_PSAD
-```
-<!-- incremental -->
-- Leads to shorter and more readable code
-```python
-rating = 0.35*scores_MSTC + 0.30*scores_HGE + 0.35*scores_PSAD
-```
-vs.
-```python
-rating = [0.35*mstc + 0.30*hge + 0.35*psad for mstc, hge, psad in \
-          zip(scores_MSTC, scores_HGE, scores_PSAD)]
-```
-<!-- incremental -->
-- Faster for very large array sizes ([source](https://www.geeksforgeeks.org/python/why-numpy-is-faster-in-python/))
-```
-Concatenation:
-Time taken by Lists : 0.02946329116821289 seconds
-Time taken by NumPy Arrays : 0.011709213256835938 seconds
-
-Dot Product:
-Time taken by Lists : 0.179551362991333 seconds
-Time taken by NumPy Arrays : 0.004144191741943359 seconds
-
-Scalar Addition:
-Time taken by Lists : 0.09385180473327637 seconds
-Time taken by NumPy Arrays : 0.005884408950805664 seconds
-
-Deletion:
-Time taken by Lists : 0.01268625259399414 seconds
-Time taken by NumPy Arrays : 3.814697265625e-06 seconds
-```
-
----
-
-# Part 3
-**The `scipy`, `sympy` and `matplotlib` libraries**
-
----
-
-## Numerical and symbolic computing
-
-### Example 2
-
-1. (MMC/2013) How many real solutions are there in the equation sin(x) = x^2?
-2. Find the area between the curves y = sin(x) and y = x^2.
-
-```pyxel-graph
-width=160
-height=110
-bg=9
-border=14
-x=-2,2
-y=-1.2,4.2
-grid=true
-plot sin(x) color=2
-plot x^2 color=5
-```
-
-|||
-
-<!-- incremental -->
-
-`Solution outline`
-
-<!-- incremental -->
-1. Determine the number of solutions graphically.
-<!-- incremental -->
-2. Find the exact values of the solutions.
-<!-- incremental -->
-3. Calculate the area between the curves using any of the four methods.
-<!-- incremental -->
-  - Using trapezoidal rule
-  <!-- incremental -->
-  - Using Simpson's one-third rule
-  <!-- incremental -->
-  - Using Gaussian quadrature
-  <!-- incremental -->
-  - Using symbolic integration
-
----
-
-## The `matplotlib` library
-
-### Solution to #1
-<!-- incremental -->
-We use *matplotlib.pyplot* to graph the left and right sides of the equation and visually count the number of intersections.
-
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-```
-<!-- incremental -->
-Generate a numpy array of 200 items of equal spacing from -pi to pi.
-```python
-x = np.linspace(-np.pi, np.pi, 200)
-```
-<!-- incremental -->
-Create a figure and axis.
-```python
-fig, ax = plt.subplots()
-```
-<!-- incremental -->
-Plot the functions.
-```python
-ax.plot(x, np.sin(x), label=rf"$f(x) = \sin x$")
-ax.plot(x, x**2, label=rf"$g(x) = x^2$")
-```
-
----
-## The `matplotlib` library
-### Solution to #1 (continued)
-<!-- incremental -->
-Add grid and axis lines.
-```python
-ax.axhline(0, color='black')
-ax.axvline(0, color='black')
-```
-<!-- incremental -->
-Set labels and title.
-```python
-ax.set_xlabel(rf"$x$")
-ax.set_ylabel(rf"$y$")
-ax.set_title(rf"Solutions to the equation $\sin x = x^2$")
-```
-<!-- incremental -->
-Add legend and grid.
-```python
-ax.legend()
-ax.grid()
-```
-<!-- incremental -->
-Show the plot. `Note: Not required in a Jupyter notebook.`
-```python
-plt.show()
-```
-
----
-## The `scipy` library
-### Solution to #1 (continued)
-
-<!-- incremental -->
-*scipy*'s `scipy.optimize.fsolve()` function is a wrapper to a [Fortran subroutine](https://www.netlib.org/minpack/hybrd.f) that uses a modification of [Powell hybrid method](https://en.wikipedia.org/wiki/Powell%27s_dog_leg_method) to solve nonlinear equations.
-
-<!-- incremental -->
-```python
-import numpy as np
-from scipy.optimize import fsolve
-```
-
-<!-- incremental -->
-Write the equation as a function `f(x) = left side - right side = 0`.
-```python
-eqn = lambda x : np.sin(x) - x**2
-```
-
-<!-- incremental -->
-Solve the equation. Multiple guess values can be fed to find multiple solutions.
-```python
-roots = fsolve(eqn, [-0.05, 1])
-print(roots)    # [4.50822753e-14 8.76726215e-01]
-```
-
----
-## The `scipy` library
-### Solution to #2
-<!-- incremental -->
-*scipy*'s `scipy.integrate` contains many methods for numerical integration.
-<!-- incremental -->
-- trapezoidal rule: `I = (h/2)(y_0 + 2y_1 + ... + 2y_(n-1) + y_n)`
-<!-- incremental -->
-- Simpson's one-third rule: `I = (h/3)(y_0 + 4y_1 + 2y_2 + ... + 2y_(n-2) + 4y_(n-1) + y_n)`
-<!-- incremental -->
-```python
-import numpy as np
-from scipy.integrate import trapezoid, simpson
-```
-<!-- incremental -->
-Divide the region into 100 points.
-```python
-x = np.linspace(roots[0], roots[1], 100)
-y = eqn(x)     # Calculate f_upper - f_lower = sin(x) - x^2
-```
-<!-- incremental -->
-Calculate the integral.
-```python
-print(rf"A = {trapezoid(y, x)} by trapezoidal rule.")   # 0.13568369268723793
-print(rf"A = {simpson(y, x)} by Simpson's rule.")       # 0.13569750707724645
-```
-
----
-
-## The `scipy` library
-### Solution to #2 (continued)
-<!-- incremental -->
-*scipy*'s `scipy.integrate.quad()` function uses 21-point [Gauss-Kronrod quadrature](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.quad.html) to numerically evaluate integrals.
-
-```python
-from scipy.integrate import quad
-```
-<!-- incremental -->
-`quad` requires three arguments: the integrand, and the lower and upper bounds of the integral. It returns two items: the value of the integral, and the error parameters.
-
-```python
-# *iterable unpacks a list or a tuple into comma-separated items.
-# In the below example, *roots = *[roots[0], roots[1]] = roots[0], roots[1].
-print(rf"A = {quad(eqn, *roots)[0]} by scipy quadrature.")    # 0.1356975072306028
-```
-
----
-
-## The `sympy` library
-### Solution to #2 (continued)
-<!-- incremental -->
-*sympy* is a library used for symbolic mathematics, similar to Mathematica or Maple.
-
-```python
-import sympy as sp
-```
-<!-- incremental -->
-Specify the symbolic variable.
-```python
-x = sp.symbols("x")
-```
-<!-- incremental -->
-Construct the equation or function based on that symbolic equation.
-
-```python
-eqn = sp.sin(x) - x**2
-```
-<!-- incremental -->
-*sympy* also has `solve()` function for symbolic solutions of equations, and `nsolve()` for numerical solutions.
-
-```python
-root_1 = sp.nsolve(eqn, x, 0)
-root_2 = sp.nsolve(eqn, x, 1)
-```
-
----
-## The `sympy` library
-### Solution to #2 (continued)
-<!-- incremental -->
-Symbolically evaluate the definite integral.
-```python
-print(rf"A = {sp.integrate(eqn, (x, root_1, root_2))} by symbolic integration.")
-# 0.135697507230603
-```
----
-
-# Part 4
-
-**The `pandas` library**
-
----
-
 ## The `pandas` library
-### Example: Simple fruit sales data
 
-<!-- incremental -->
-
-```python
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
-# Import the data.
-data = {
-    'Date': ['2023-01-01', '2023-01-01', '2023-01-02', '2023-01-02', '2023-01-03', '2023-01-03'],
-    'Product': ['Apple', 'Banana', 'Apple', 'Banana', 'Orange', 'Apple'],
-    'Category': ['Fruit', 'Fruit', 'Fruit', 'Fruit', 'Fruit', 'Fruit'],
-    'Units_Sold': [10, 15, np.nan, 20, 12, 5],
-    'Price_Per_Unit': [1.50, 0.50, 1.50, 0.50, 0.80, 1.50]
-}
-df = pd.DataFrame(data)
-print(df)
-
-# Fill the missing value with the average units sold.
-# WARNING: This is for illustration purposes only. Do not try this at home.
-mean_units = df['Units_Sold'].mean()
-df['Units_Sold'] = df['Units_Sold'].fillna(mean_units)
-
-# Ensure 'Date' is actually a datetime object, not just a string.
-df['Date'] = pd.to_datetime(df['Date'])
-
-print(df)
-
-# Calculate the total revenue using units sold and price per unit.
-df['Total_Revenue'] = df['Units_Sold'] * df['Price_Per_Unit']
-
-# - Group by product.
-# - Get the total revenue per product.
-# - Add those revenues per product.
-# - Sort revenues in decreasing order.
-revenue_by_product = df.groupby('Product')['Total_Revenue'].sum().sort_values(ascending=False)
-print(revenue_by_product)
-
-# Show revenue as a bar chart.
-plt.figure(figsize=(8, 5))
-revenue_by_product.plot(kind='bar', color='skyblue')
-plt.title('Total Revenue by Product')
-plt.xlabel('Product')
-plt.ylabel('Revenue ($)')
-plt.xticks(rotation=0)
-plt.grid(axis='y', linestyle='--', alpha=0.7)
-plt.show()
-```
-
----
-
-## `matplotlib` and `seaborn`
-
-<!-- incremental -->
-A raw list of data of number of study hours vs. grades.
-```
-[
-  {'study_hours': 2, 'grade': 75},
-  {'study_hours': 5, 'grade': 88},
-  {'study_hours': 1, 'grade': 60},
-  {'study_hours': 6, 'grade': 92},
-  ... (Imagine 500 more rows)
-]
-```
-
-<!-- incremental -->
-Analysis using `matplotlib` and `seaborn`.
-
-```python
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-# Create a regression plot using seaborn.
-sns.regplot(x="study_hours", y="grade", data=df)
-plt.title("Do Study Hours Affect Grades?")
-plt.show()
-```
-
----
-
-## The `pandas` library
-### Example 3
-
-Given the population of the Philippines from 1840 to 2024 [based on national census](https://psa.gov.ph/system/files/psy/2025_T1_4.xlsx), answer the following questions.
+==**Example 7**== Given the population of the Philippines from 1840 to 2024 [based on national census](https://psa.gov.ph/system/files/psy/2025_T1_4.xlsx), answer the following questions.
 
 1. The population growth of a certain country is said to be *sustainable* if the annual growth rate is between [0.5% and 1.2%](https://philarchive.org/archive/MALTIP-2). List out the years in which the population growth of the Philippines was sustainable.
 2. Based from the provided population data, calculate the average annual growth rate in percent for each listed year.
 3. Based from the provided annual growth rate, calculate the maximum and minimum growth rate, and the respective years in which they occurred.
-
+4. Create the following: (a) a bar graph of population for each year, (b) multiple line graphs in a single figure, covering population, population increase and provided and calculated annual growth rate.
 ---
 
 ## The `pandas` library
 
-*pandas* is a Python library used for data analysis.
+==Solution #1==
 
 <!-- incremental -->
 ```python
@@ -1266,24 +832,28 @@ import pandas as pd
 <!-- incremental -->
 *pandas* can import Excel and CSV files.
 
+<!-- incremental -->
 ```python
 ph_population = pd.read_excel("2025_T1_4.xlsx")
 ```
 <!-- incremental -->
 Imported data can sometimes contain invalid data like `NaN` (not a number) or `None` values. `dropna()` can be used to remove these values.
 
+<!-- incremental -->
 ```python
 ph_population = ph_population.dropna()
 ```
 <!-- incremental -->
 Like lists or *numpy* arrays, we can specify the rows that we will get as data.
 
+<!-- incremental -->
 ```python
 ph_population = ph_population[1:]    # Exclude the first row (i.e. index 0).
 ```
 <!-- incremental -->
 `.columns` can be used to specify the column names.
 
+<!-- incremental -->
 ```python
 ph_population.columns = ["Year", "Population", "Annual Growth Rate (%)", "Source"]
 ```
@@ -1292,17 +862,19 @@ ph_population.columns = ["Year", "Population", "Annual Growth Rate (%)", "Source
 
 ## The `pandas` library
 
-### Solution to #1
+==Solution #1==
 
 <!-- incremental -->
 We can filter the data by specifying conditions within square brackets.
 
+<!-- incremental -->
 ```python
 sustainable = ph_population[ph_population["Annual Growth Rate (%)"] >= 0.5]
 sustainable = ph_population[ph_population["Annual Growth Rate (%)"] <= 1.2]
 ```
 <!-- incremental -->
 We can also specify which columns will be considered.
+<!-- incremental -->
 ```python
 print(sustainable[["Year", "Annual Growth Rate (%)"]])
 ```
@@ -1317,23 +889,27 @@ print(sustainable[["Year", "Annual Growth Rate (%)"]])
 ---
 
 ## The `pandas` library
-### Solution to #2
+
+==Solution #2==
 
 <!-- incremental -->
 `.diff()` calculates the difference between consecutive values.
 
+<!-- incremental -->
 ```python
 ph_population["Annual Increase"] = ph_population["Population"].diff()/ \
                                                             ph_population["Year"].diff()
 ```
 <!-- incremental -->
 `.shift()` shifts the values in a column by a specified number of periods.
+<!-- incremental -->
 ```python
 ph_population["Calculated Rate (%)"] = ph_population["Annual Increase"]/ \
                                               ph_population["Population"].shift(1) * 100
 ```
 <!-- incremental -->
 Show only the last two rows.
+<!-- incremental -->
 ```python
 print(ph_population[["Year", "Population", "Annual Increase", 
                                                            "Calculated Rate (%)"]][-2:])
@@ -1346,9 +922,11 @@ print(ph_population[["Year", "Population", "Annual Increase",
 
 ---
 ## The `pandas` library
-### Solution to #3
+
+==Solution #3==
 <!-- incremental -->
 Some statistical measures that can be computed using *pandas* are `max()`, `min()`, `mean()`, `median()`, `std()`, `count()` and `sum()`.
+<!-- incremental -->
 ```python
 # Maximum and minimum annual growth rates.
 print(ph_population["Annual Growth Rate (%)"].max())    # 3.08
@@ -1359,6 +937,7 @@ print(ph_population["Annual Growth Rate (%)"].min())    # 0.5
 <!-- incremental -->
 <br/>Using that index, we can retrieve the corresponding row using `.loc[]`.
 
+<!-- incremental -->
 ```python
 # Year with which they respectively occurred.
 print(ph_population.loc[ph_population["Annual Growth Rate (%)"].idxmax(), "Year"]) # 1970
@@ -1366,11 +945,14 @@ print(ph_population.loc[ph_population["Annual Growth Rate (%)"].idxmin(), "Year"
 ```
 ---
 
-## The `pandas` library
-### EXTRA: From tables to graphs
+## The `matplotlib` library
+
+==Solution #4 (a)==
+
 <!-- incremental -->
 `.to_numpy()` converts a pandas Series to a *numpy* array.
 
+<!-- incremental -->
 ```python
 import matplotlib.pyplot as plt
 
@@ -1380,6 +962,7 @@ population = ph_population["Population"].to_numpy(dtype='float')
 <!-- incremental -->
 From this, we can plot the data using *matplotlib*.
 
+<!-- incremental -->
 ```python
 # A vertical bar plot
 fig, ax = plt.subplots()
@@ -1392,10 +975,14 @@ ax.set_title("Philippine Population (PSA Census Data)")  # Set plot title
 
 ---
 
-## The `pandas` library
-### EXTRA: From tables to graphs
+## The `matplotlib` library
+
+==Solution #4 (b)==
+
 <!-- incremental -->
 Several plots can be placed in a single figure using `plt.subplots()`.
+
+<!-- incremental -->
 ```python
 fig, ax = plt.subplots(1, 4)                 # Set up 4 subplots in a row
 fig.set_size_inches(24, 6)                   # Set the overall figure size
@@ -1413,182 +1000,69 @@ for i, cur_col in enumerate((1, 2, 4, 5)) :  # Loop through the columns we want 
 ```
 ---
 
-## The `pandas` library
-### EXTRA: Regression analysis
-<!-- incremental -->
-`scipy.optimize.curve_fit()` function can be used to construct regression models from given data. 
+## The `scikit-learn` library
+
+==**Example 8**== Given an Excel file of 200 rebound hammer test results reported from different parts of a single building, construct a best-fit line that can be used to estimate the compressive strength (in MPa) of a part of the same building given the obtained rebound number.
+
+==Solution==
 
 ```python
-from scipy.optimize import curve_fit
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+```
+As usual, read the Excel file and extract the data as *pandas* Series. However
+```python
+df = pd.read_excel("rebound_hammer_data.xlsx")
+X = df[["Rebound Number"]]
+y = df["Concrete Strength (MPa)"]
+```
 
-lin_curve = lambda x, A, B : A + B * x       # linear regression equation y = A + Bx
-pow_curve = lambda x, A, B : A * B ** x      # power regression equation y = A * B^x
+```python
+# Fit the linear regression model
+model = LinearRegression()
+model.fit(X, y)
+```
 
-lin_params, _ = curve_fit(lin_curve, year, population)   # fit linear curve to data
-pow_params, _ = curve_fit(pow_curve, year, population)   # fit power curve to data
+---
+## The `scikit-learn` library
 
-# Plot the data and the resulting regression curves.
-fig, ax = plt.subplots()
-ax.scatter(year, population)
-ax.plot(year, lin_curve(year, *lin_params), linestyle='dashed', color='red',
-               label=rf"population = {lin_params[0]:.2f} + {lin_params[1]:.2f} * year")
-ax.plot(year, pow_curve(year, *pow_params), linestyle='dashed', color='green',
-               label=rf"population = {pow_params[0]:.2f} * {pow_params[1]:.2f}^x")
-ax.set_xlabel("Year")
-ax.set_ylabel("Population")
+```python
+# Get the regression coefficients and R² value
+slope     = model.coef_[0]
+intercept = model.intercept_
+r2        = r2_score(y, model.predict(X))
+
+# Generate points for the regression line
+x_line = np.linspace(X.min(), X.max(), 300)
+y_line = model.predict(x_line)
+
+# Plot
+fig, ax = plt.subplots(figsize=(8, 5))
+
+ax.scatter(X, y, color="steelblue", alpha=0.6, label="Data points")
+ax.plot(x_line, y_line, color="tomato", linewidth=2, label="Regression line")
+
+# Annotate with the equation and R²
+equation = f"y = {slope:.4f}x + {intercept:.4f}\n$R^2$ = {r2:.4f}"
+ax.text(0.05, 0.95, equation, transform=ax.transAxes,
+        fontsize=11, verticalalignment="top",
+        bbox=dict(boxstyle="round", facecolor="lightyellow", alpha=0.8))
+
+ax.set_xlabel("Rebound Number")
+ax.set_ylabel("Concrete Strength (MPa)")
+ax.set_title("Concrete Strength vs. Rebound Number")
 ax.legend()
+
+plt.tight_layout()
+plt.show()
 ```
 
 ---
 
-## The `pandas` library
-### EXTRA: Regression analysis
-
-<!-- incremental -->
-`scipy.optimize.curve_fit()` does not have a direct function to calculate R^2 values. So, we have to construct it ourselves.
-
-<!-- incremental -->
-```python
-# Calculate R^2 value
-def r_squared(y_actual, y_calculated) :
-    residuals = y_actual - y_calculated
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((y_actual - np.mean(y_actual))**2)
-  
-    return 1 - ss_res/ss_tot
-
-# Linear curve
-r_squared_linear = r_squared(population, lin_curve(year, *lin_params))
-print(rf"R^2 = {r_squared_linear:.2f} for linear curve")
-
-# Power curve
-r_squared_power = r_squared(population, pow_curve(year, *pow_params))
-print(rf"R^2 = {r_squared_power:.2f} for power curve")
-```
-<!-- incremental -->
-An alternative to *scipy* for regression analysis is *scikit-learn*.
-
----
-
-# Part 4
-** A famous math example **
-
----
-
-## A famous math example
-### Example 4
-
-Random points (x, y) are placed in the Cartesian plane such that 0 <= x, y <= 1. Estimate the value of pi.
-
-```pyxel-canvas
-width=152
-height=152
-bg=0
-border=0
-rect 16 16 121 121 color=14 fill=0
-area 16,136 136,136 134,115 129,95 120,76 108,59 93,44 76,32 57,23 37,18 16,16 fill=12 color=12
-curve 136,136 136,70 82,16 16,16 color=4 steps=48
-line 16 136 136 136 color=14
-line 16 16 16 136 color=14
-point 39 102 color=2 size=2
-point 30 99 color=2 size=2
-point 53 114 color=2 size=2
-point 84 48 color=2 size=2
-point 41 75 color=2 size=2
-point 35 19 color=2 size=2
-point 54 75 color=2 size=2
-point 96 96 color=2 size=2
-point 73 28 color=5 size=2
-point 82 111 color=2 size=2
-point 123 102 color=2 size=2
-point 48 75 color=2 size=2
-point 90 48 color=2 size=2
-point 46 133 color=2 size=2
-point 31 57 color=2 size=2
-point 28 100 color=2 size=2
-point 44 19 color=5 size=2
-point 30 48 color=2 size=2
-point 131 28 color=5 size=2
-point 36 71 color=2 size=2
-point 67 17 color=5 size=2
-point 130 99 color=2 size=2
-point 114 122 color=2 size=2
-point 65 74 color=2 size=2
-point 118 94 color=2 size=2
-point 67 66 color=2 size=2
-point 131 50 color=5 size=2
-point 128 43 color=5 size=2
-point 80 106 color=2 size=2
-point 120 21 color=5 size=2
-point 131 33 color=5 size=2
-point 55 87 color=2 size=2
-point 58 135 color=2 size=2
-point 61 70 color=2 size=2
-point 22 33 color=2 size=2
-point 100 58 color=2 size=2
-point 109 131 color=2 size=2
-point 87 121 color=2 size=2
-point 35 37 color=2 size=2
-point 39 34 color=2 size=2
-point 47 29 color=2 size=2
-point 98 105 color=2 size=2
-text 20 142 "inside=34/42  pi~3.24" color=1
-```
-
-|||
-
-<!-- incremental -->
-`Solution`
-<!-- incremental -->
-- A(square) = 1^2 = 1
-<!-- incremental -->
-- A(quarter-circle) = (1/4)(pi * 1^2) = pi/4
-<!-- incremental -->
-- A(quarter-circle) / A(square) = (pi/4) / 1 = pi/4
-<!-- incremental -->
-- pi = 4 * A(quarter-circle) / A(square)<br/>= `4 * N(points in quarter-circle) / N(points in square)`
-
----
-
-# Workshop Examples
-
----
-
-## Example 1: Rebound hammer tests
-
-![Rebound hammer](https://blog.certifiedmtp.com/wp-content/uploads/2024/06/e6af71d8-6a1d-467b-98f6-e4630b1e528f.jpg)
-
-<!-- incremental -->
-**Code**
-
-```python
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# insert code here
-```
-
----
-
-## Example 2: Construction cost calculator
-
-![Construction site](https://freelineeng.ae/wp-content/uploads/2022/06/asian-two-business-man-construction-engineers-supervising-progress-construction-project-construction-site.jpg)
-
-<!-- incremental -->
-**Code**
-
-```python
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-
-# insert code here
-```
-
----
-
-# Part 5
+# Part 7
 **Next steps**
 
 ---
