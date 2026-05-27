@@ -40,24 +40,24 @@ May 27, 2026
 
 `Live codes for this talk`
 
-![Google Colab QR Code](../qrcode_googlecolab.png?scale=1.2)
+![Google Colab QR Code](../qr_codes/qr_dlsu_dss_google_colab.png?scale=1.2)
 
 |||
 
 `Python 3.14 cheat sheet`
 
-![Python 3.14 cheat sheet QR Code](../qrcode_cheatsheet.png?scale=1.2)
+![Python 3.14 cheat sheet QR Code](../qr_codes/qrcode_cheatsheet.png?scale=1.2)
 
 
 ---
 
 # Part 1
 
-**Why write in Python?**
+**Writing in Python: Why?**
 
 ---
 
-## Why write in Python?
+## Why Python?
 
 `[Python website](https://www.python.org/about/)`
 
@@ -75,7 +75,7 @@ May 27, 2026
 
 ---
 
-## Why write in Python?
+## Why Python?
 
 `[Python website](https://www.python.org/about/)`
 
@@ -119,7 +119,7 @@ print(max(arr))
 
 ---
 
-## Why write Python?
+## Why Python?
 
 `[Python website](https://www.python.org/about/)`
 
@@ -149,7 +149,7 @@ print(max(arr))
 
 ---
 
-## Why write in Python?
+## Why Python?
 
 ### Python is powerful.
 
@@ -469,6 +469,11 @@ print(sum([n**2 for n in range(1, 100 + 1)]))
 
 ==**Example 2**== Suppose that we have the following record of transactions in US Dollars. Notice that some transactions are corrupted (the amount is either `None` or negative value). We want to determine the total amount of all valid transactions only, converted to Euros using the conversion 1 US Dollar = 0.85 Euro.
 
+```python
+transactions_usd = [10.50, None, -5.00, 25.00, 100.00, None, 12.50]
+usd_to_euro = 0.85
+```
+
 <!-- incremental -->
 ==Solution==
 
@@ -484,7 +489,7 @@ print(total_euros)
 ---
 
 # Part 4
-**Write faster code**
+**Writing faster code**
 
 ---
 
@@ -545,7 +550,7 @@ print(f"time = {time_end - time_start:.4f} seconds.")    # 1.6669 seconds
 ### Creating numpy arrays
 
 <!-- incremental -->
-```python
+```python hl=5
 import time
 import numpy as np
 
@@ -581,7 +586,7 @@ print(f"time = {time_end - time_start:.4f} seconds.")    # 0.4242 seconds
 ### Finding elements in sets
 
 <!-- incremental -->
-```python
+```python hl=2
 import time
 numbers = set([num for num in range(1, int(1e8) + 1)])
 
@@ -597,7 +602,7 @@ print(f"time = {time_end - time_start:.6f} seconds.")    # 0.000005 seconds
 ---
 
 # Part 5
-**Functions that take in functions**
+**Writing functions that take in functions**
 
 ---
 
@@ -1001,11 +1006,11 @@ for i, cur_col in enumerate((1, 2, 4, 5)) :  # Loop through the columns we want 
 ---
 
 ## The `scikit-learn` library
-
-==**Example 8**== Given an Excel file of 200 rebound hammer test results reported from different parts of a single building, construct a best-fit line that can be used to estimate the compressive strength (in MPa) of a part of the same building given the obtained rebound number.
-
+<!-- incremental -->
+==**Example 8**== Given an Excel file of 200 rebound hammer test results reported from different parts of a single building, construct a best-fit line that can be used to estimate the compressive strength (in MPa) of a part of the same building given the obtained rebound number. Comment on the results.
+<!-- incremental -->
 ==Solution==
-
+<!-- incremental -->
 ```python
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -1013,62 +1018,64 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 ```
-As usual, read the Excel file and extract the data as *pandas* Series. However
+<!-- incremental -->
+As usual, read the Excel file and extract the data as *pandas* Series.
+<!-- incremental -->
 ```python
 df = pd.read_excel("rebound_hammer_data.xlsx")
-X = df[["Rebound Number"]]
-y = df["Concrete Strength (MPa)"]
+rebound_num = df[["Rebound Number"]]
+strength = df["Concrete Strength (MPa)"]
 ```
-
-```python
-# Fit the linear regression model
-model = LinearRegression()
-model.fit(X, y)
-```
+<!-- incremental -->
+> <u>**Note**</u>: *scikit-learn* requires two-dimensional *x*-data. Hence, the use of double brackets `df[[...]]` in line 2 above.
 
 ---
+
 ## The `scikit-learn` library
 
+<!-- incremental -->
+Create a `LinearRegression` model, and fit it to the given data.
+<!-- incremental -->
 ```python
-# Get the regression coefficients and R² value
+model = LinearRegression()
+model.fit(rebound_num, strength)
+```
+<!-- incremental -->
+Calculate the properties of the best-fit line.
+<!-- incremental -->
+```python
 slope     = model.coef_[0]
 intercept = model.intercept_
-r2        = r2_score(y, model.predict(X))
-
-# Generate points for the regression line
-x_line = np.linspace(X.min(), X.max(), 300)
+r2        = r2_score(strength, model.predict(rebound_num))
+```
+<!-- incremental -->
+Construct the regression line for plotting.
+<!-- incremental -->
+```python
+x_line = np.linspace(rebound_num.min(), rebound_num.max(), 300)
 y_line = model.predict(x_line)
-
-# Plot
-fig, ax = plt.subplots(figsize=(8, 5))
-
-ax.scatter(X, y, color="steelblue", alpha=0.6, label="Data points")
+```
+<!-- incremental -->
+Finally, plot the data points and the regression line.
+<!-- incremental -->
+```python
+fig, ax = plt.subplots()
+ax.scatter(rebound_num, strength, label="Data points")
 ax.plot(x_line, y_line, color="tomato", linewidth=2, label="Regression line")
-
-# Annotate with the equation and R²
-equation = f"y = {slope:.4f}x + {intercept:.4f}\n$R^2$ = {r2:.4f}"
-ax.text(0.05, 0.95, equation, transform=ax.transAxes,
-        fontsize=11, verticalalignment="top",
-        bbox=dict(boxstyle="round", facecolor="lightyellow", alpha=0.8))
-
 ax.set_xlabel("Rebound Number")
 ax.set_ylabel("Concrete Strength (MPa)")
-ax.set_title("Concrete Strength vs. Rebound Number")
 ax.legend()
-
-plt.tight_layout()
-plt.show()
 ```
 
 ---
 
 # Part 7
-**Next steps**
+**Writing the next steps**
 
 ---
 
 ## Next steps
-
+<!-- incremental -->
 1. Create your Github account.
 <!-- incremental -->
 2. Read the library documentation **a lot**.
@@ -1105,7 +1112,7 @@ This presentation was created using a heavily modified version of [Pyxel slides]
 
 `PDF and source code of presentation`
 
-![Github repository](../qrcode_presentation.png?scale=1.2)
+![Github repository](../qr_codes/qrcode_presentation.png?scale=1.2)
 
 ---
 
