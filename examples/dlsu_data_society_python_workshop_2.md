@@ -329,7 +329,7 @@ sum = 0
 
 current_num = 1
 while current_num <= 100 :
-    sum += num
+    sum += current_num
     current_num += 1
 print(sum)    # 5050
 ```
@@ -712,6 +712,9 @@ A = [[5,  3,  2],   # coefficients matrix
      [2, -6, -7], 
      [4, -8,  3]]
 B = [15, -22, 9]    # constants vector
+
+A = np.array(A)
+B = np.array(B)
 ```
 
 <!-- incremental -->
