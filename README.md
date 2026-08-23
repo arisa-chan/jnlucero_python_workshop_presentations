@@ -180,16 +180,33 @@ bg=9
 border=14
 scale=1
 align=center
+thickness=2
+text_size=1
 line 10 100 210 20 color=2
-curve 20,100 80,10 140,10 200,100 color=4 steps=48
-area 40,85 90,45 140,85 fill=12 color=2
-rect 152 62 42 28 color=5 fill=13
-text 12 10 "Canvas demo" color=1
+curve 20,100 80,10 140,10 200,100 color=4 steps=48 thickness=3
+area 40,85 90,45 140,85 fill=12 color=2 thickness=2
+rect 152 62 42 28 color=5 fill=13 thickness=2
+circle 120 45 18 color=11 fill=0 thickness=2
+text 12 10 "Canvas demo" color=1 size=2
 ```
 ````
 
 Supported commands include `point`, `line`, `polyline` / `path`, `curve`,
-`area` / `polygon`, `rect`, and `text`.
+`area` / `polygon`, `rect`, `circle`, and `text`.
+
+Readability options:
+
+| Option | Where | Meaning |
+| --- | --- | --- |
+| `thickness=N` | fence header, or any stroke command | Line/outline stroke width in pixels (default `1`) |
+| `text_size=N` | fence header, or `text` as `size=N` | Integer scale of the 4x6 built-in text font (default `1`) |
+| `size=N` | `point` | Point diameter in pixels |
+| `fill=COLOR` / `fill=true` | `area`, `rect`, `circle` | Fill interior with a color index |
+| `color=N` | any command | Pyxel palette index `0..15` |
+| `steps=N` | `curve` | Bezier sampling resolution |
+
+The header `thickness=` and `text_size=` set the default for every command in
+the block; per-command `thickness=` and `size=` override them.
 
 ## Graph Blocks
 
@@ -204,22 +221,45 @@ height=140
 x=-6.28,6.28
 y=-1.5,1.5
 grid=true
+grid_thickness=1
+axis_thickness=2
+plot_thickness=3
 plot sin(x) color=2
-plot cos(x) color=5
+plot cos(x) color=5 thickness=2
 shade_under sin(x) baseline=0 color=12 x=0,3.14
-shade_between upper=cos(x) lower=sin(x) color=13 x=-1.57,1.57
+shade_between upper=cos(x) lower=sin(x) color=13 x=-1.57,1.57 thickness=1
 ```
 ````
+
+Graph readability options (all accept per-command `thickness=` overrides on
+`plot`, `shade_under`, and `shade_between`):
+
+| Option | Meaning |
+| --- | --- |
+| `axis_thickness=N` | Stroke width of the x/y axes (default `1`) |
+| `grid_thickness=N` | Stroke width of grid lines (default `1`) |
+| `plot_thickness=N` | Stroke width of function plots (default `2`) |
+| `shading_thickness=N` | Stroke width of shaded region outlines (default `1`) |
+| `samples=N` | Number of sampled points per plot/region (default `160`) |
+| `axis_color=N` / `grid_color=N` | Palette indices for axes/grid |
 
 The same primitives are available from Python:
 
 ```python
 from pyxel_slides import Canvas, Graph
 
-canvas = Canvas(width=220, height=120, bg=9, border=14)
-graph = Graph(canvas, x_min=-5, x_max=5, y_min=-2, y_max=2, grid=True)
+canvas = Canvas(width=220, height=120, bg=9, border=14,
+                default_thickness=2, default_text_size=1)
+graph = Graph(canvas, x_min=-5, x_max=5, y_min=-2, y_max=2, grid=True,
+              axis_thickness=2, grid_thickness=1, plot_thickness=3,
+              shading_thickness=1)
 graph.plot("x^2 - 1", color=2).shade_under("sin(x)", color=12).draw()
 ```
+
+Every `Canvas` stroke method (`point`, `line`, `polyline`, `curve`, `area`,
+`rect`, `circle`) takes a `thickness` keyword in pixels, and `text` takes a
+`size` keyword for integer font scaling. Omitting the keyword falls back to the
+canvas default.
 
 ## Sprites
 

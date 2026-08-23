@@ -29,13 +29,16 @@ def _as_point(x: float, y: float) -> Point:
 
 @dataclass
 class CanvasCommand:
-    kind: Literal["point", "line", "polyline", "curve", "area", "rect", "text"]
+    kind: Literal["point", "line", "polyline", "curve", "area", "rect", "circle", "text"]
     points: list[Point] = field(default_factory=list)
     color: int = 1
     fill: int | None = None
     text: str = ""
     size: int = 1
     steps: int = 32
+    thickness: int = 1
+    radius: int = 0
+    text_size: int = 1
 
 
 @dataclass
@@ -51,6 +54,8 @@ class Canvas:
     bg: int = 0
     border: int = -1
     commands: list[CanvasCommand] = field(default_factory=list)
+    default_thickness: int = 1
+    default_text_size: int = 1
 
     def __post_init__(self) -> None:
         self.width = max(1, int(self.width))
@@ -59,34 +64,63 @@ class Canvas:
         self.border = int(self.border)
         if self.border >= 0:
             self.border = _clamp_color(self.border)
+        self.default_thickness = max(1, int(self.default_thickness))
+        self.default_text_size = max(1, int(self.default_text_size))
 
     def clear(self) -> None:
         self.commands.clear()
 
-    def point(self, x: float, y: float, color: int = 1, size: int = 1) -> "Canvas":
+    def point(
+        self,
+        x: float,
+        y: float,
+        color: int = 1,
+        size: int = 1,
+        thickness: int | None = None,
+    ) -> "Canvas":
+        """Draw a filled square of ``size`` pixels, drawn with ``thickness``."""
+
         self.commands.append(CanvasCommand(
             kind="point",
             points=[_as_point(x, y)],
             color=_clamp_color(color),
             size=max(1, int(size)),
+            thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
         ))
         return self
 
-    def line(self, x1: float, y1: float, x2: float, y2: float, color: int = 1) -> "Canvas":
+    def line(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        color: int = 1,
+        thickness: int | None = None,
+    ) -> "Canvas":
+        """Draw a line with the given stroke thickness in pixels."""
+
         self.commands.append(CanvasCommand(
             kind="line",
             points=[_as_point(x1, y1), _as_point(x2, y2)],
             color=_clamp_color(color),
+            thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
         ))
         return self
 
-    def polyline(self, points: Sequence[tuple[float, float]], color: int = 1) -> "Canvas":
+    def polyline(
+        self,
+        points: Sequence[tuple[float, float]],
+        color: int = 1,
+        thickness: int | None = None,
+    ) -> "Canvas":
         pts = [_as_point(x, y) for x, y in points]
         if pts:
             self.commands.append(CanvasCommand(
                 kind="polyline",
                 points=pts,
                 color=_clamp_color(color),
+                thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
             ))
         return self
 
@@ -95,6 +129,7 @@ class Canvas:
         points: Sequence[tuple[float, float]],
         color: int = 1,
         steps: int = 32,
+        thickness: int | None = None,
     ) -> "Canvas":
         """Draw a Bezier curve through the given control points.
 
@@ -109,6 +144,7 @@ class Canvas:
                 points=pts,
                 color=_clamp_color(color),
                 steps=max(2, int(steps)),
+                thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
             ))
         return self
 
@@ -117,6 +153,7 @@ class Canvas:
         points: Sequence[tuple[float, float]],
         color: int = 1,
         fill: bool | int | None = None,
+        thickness: int | None = None,
     ) -> "Canvas":
         """Draw a polygon outline, optionally with a shaded fill."""
 
@@ -135,6 +172,7 @@ class Canvas:
             points=pts,
             color=_clamp_color(color),
             fill=fill_col,
+            thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
         ))
         return self
 
@@ -146,6 +184,7 @@ class Canvas:
         h: float,
         color: int = 1,
         fill: bool | int | None = None,
+        thickness: int | None = None,
     ) -> "Canvas":
         fill_col: int | None
         if fill is None or fill is False:
@@ -159,15 +198,58 @@ class Canvas:
             points=[_as_point(x, y), _as_point(x + w - 1, y + h - 1)],
             color=_clamp_color(color),
             fill=fill_col,
+            thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
         ))
         return self
 
-    def text(self, x: float, y: float, text: str, color: int = 1) -> "Canvas":
+    def circle(
+        self,
+        x: float,
+        y: float,
+        r: float,
+        color: int = 1,
+        fill: bool | int | None = None,
+        thickness: int | None = None,
+    ) -> "Canvas":
+        """Draw a circle outline centered at ``(x, y)``, optionally filled.
+
+        ``r`` is the radius in canvas pixels; the outline is drawn just
+        inside that radius.
+        """
+
+        fill_col: int | None
+        if fill is None or fill is False:
+            fill_col = None
+        elif fill is True:
+            fill_col = _clamp_color(color)
+        else:
+            fill_col = _clamp_color(int(fill))
+        self.commands.append(CanvasCommand(
+            kind="circle",
+            points=[_as_point(x, y)],
+            color=_clamp_color(color),
+            fill=fill_col,
+            radius=max(1, int(round(r))),
+            thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
+        ))
+        return self
+
+    def text(
+        self,
+        x: float,
+        y: float,
+        text: str,
+        color: int = 1,
+        size: int | None = None,
+    ) -> "Canvas":
+        """Draw text with an integer pixel-scale of the built-in 4x6 font."""
+
         self.commands.append(CanvasCommand(
             kind="text",
             points=[_as_point(x, y)],
             color=_clamp_color(color),
             text=str(text),
+            text_size=max(1, int(size)) if size is not None else self.default_text_size,
         ))
         return self
 
@@ -183,20 +265,23 @@ class Canvas:
         for cmd in self.commands:
             if cmd.kind == "text":
                 continue
+            thickness = max(1, int(cmd.thickness))
             if cmd.kind == "point" and cmd.points:
-                _draw_point(pixels, cmd.points[0], cmd.color, cmd.size)
+                _draw_point(pixels, cmd.points[0], cmd.color, cmd.size, thickness)
             elif cmd.kind == "line" and len(cmd.points) >= 2:
-                _draw_line(pixels, cmd.points[0], cmd.points[1], cmd.color)
+                _draw_line(pixels, cmd.points[0], cmd.points[1], cmd.color, thickness)
             elif cmd.kind == "polyline":
-                _draw_polyline(pixels, cmd.points, cmd.color)
+                _draw_polyline(pixels, cmd.points, cmd.color, thickness)
             elif cmd.kind == "curve":
-                _draw_curve(pixels, cmd.points, cmd.color, cmd.steps)
+                _draw_curve(pixels, cmd.points, cmd.color, cmd.steps, thickness)
             elif cmd.kind == "area":
                 if cmd.fill is not None and len(cmd.points) >= 3:
                     _fill_polygon(pixels, cmd.points, cmd.fill)
-                _draw_polygon_outline(pixels, cmd.points, cmd.color)
+                _draw_polygon_outline(pixels, cmd.points, cmd.color, thickness)
             elif cmd.kind == "rect" and len(cmd.points) >= 2:
-                _draw_rect(pixels, cmd.points[0], cmd.points[1], cmd.color, cmd.fill)
+                _draw_rect(pixels, cmd.points[0], cmd.points[1], cmd.color, cmd.fill, thickness)
+            elif cmd.kind == "circle" and cmd.points:
+                _draw_circle(pixels, cmd.points[0], cmd.radius, cmd.color, cmd.fill, thickness)
 
         if self.border >= 0:
             _draw_rect(
@@ -205,6 +290,7 @@ class Canvas:
                 (self.width - 1, self.height - 1),
                 self.border,
                 None,
+                max(1, self.default_thickness),
             )
 
         return pixels
@@ -215,16 +301,45 @@ def _set_pixel(pixels: list[list[int]], x: int, y: int, color: int) -> None:
         pixels[y][x] = color
 
 
-def _draw_point(pixels: list[list[int]], point: Point, color: int, size: int = 1) -> None:
+def _thick_span(pixels: list[list[int]], x: int, y: int, color: int, thickness: int) -> None:
+    """Set a pixel plus an (even) thickness halo around it, clipped to bounds."""
+
+    _set_pixel(pixels, x, y, color)
+    if thickness <= 1:
+        return
+    r = thickness // 2
+    height = len(pixels)
+    width = len(pixels[0]) if height else 0
+    lo_y, hi_y = max(0, y - r), min(height - 1, y + r)
+    lo_x, hi_x = max(0, x - r), min(width - 1, x + r)
+    for py in range(lo_y, hi_y + 1):
+        for px in range(lo_x, hi_x + 1):
+            pixels[py][px] = color
+
+
+def _draw_point(
+    pixels: list[list[int]],
+    point: Point,
+    color: int,
+    size: int = 1,
+    thickness: int = 1,
+) -> None:
     x, y = point
     size = max(1, int(size))
+    thickness = max(1, int(thickness))
     half = size // 2
     for py in range(y - half, y - half + size):
         for px in range(x - half, x - half + size):
-            _set_pixel(pixels, px, py, color)
+            _thick_span(pixels, px, py, color, thickness)
 
 
-def _draw_line(pixels: list[list[int]], p0: Point, p1: Point, color: int) -> None:
+def _draw_line(
+    pixels: list[list[int]],
+    p0: Point,
+    p1: Point,
+    color: int,
+    thickness: int = 1,
+) -> None:
     x0, y0 = p0
     x1, y1 = p1
     dx = abs(x1 - x0)
@@ -234,7 +349,7 @@ def _draw_line(pixels: list[list[int]], p0: Point, p1: Point, color: int) -> Non
     err = dx + dy
 
     while True:
-        _set_pixel(pixels, x0, y0, color)
+        _thick_span(pixels, x0, y0, color, thickness)
         if x0 == x1 and y0 == y1:
             break
         e2 = 2 * err
@@ -246,9 +361,14 @@ def _draw_line(pixels: list[list[int]], p0: Point, p1: Point, color: int) -> Non
             y0 += sy
 
 
-def _draw_polyline(pixels: list[list[int]], points: Sequence[Point], color: int) -> None:
+def _draw_polyline(
+    pixels: list[list[int]],
+    points: Sequence[Point],
+    color: int,
+    thickness: int = 1,
+) -> None:
     for p0, p1 in zip(points, points[1:]):
-        _draw_line(pixels, p0, p1, color)
+        _draw_line(pixels, p0, p1, color, thickness)
 
 
 def _bezier_point(points: Sequence[Point], t: float) -> FloatPoint:
@@ -269,22 +389,28 @@ def _draw_curve(
     points: Sequence[Point],
     color: int,
     steps: int,
+    thickness: int = 1,
 ) -> None:
     if len(points) < 2:
         return
     if len(points) == 2:
-        _draw_line(pixels, points[0], points[1], color)
+        _draw_line(pixels, points[0], points[1], color, thickness)
         return
     sampled = [_as_point(*_bezier_point(points, i / steps)) for i in range(steps + 1)]
-    _draw_polyline(pixels, sampled, color)
+    _draw_polyline(pixels, sampled, color, thickness)
 
 
-def _draw_polygon_outline(pixels: list[list[int]], points: Sequence[Point], color: int) -> None:
+def _draw_polygon_outline(
+    pixels: list[list[int]],
+    points: Sequence[Point],
+    color: int,
+    thickness: int = 1,
+) -> None:
     if len(points) < 2:
         return
-    _draw_polyline(pixels, points, color)
+    _draw_polyline(pixels, points, color, thickness)
     if len(points) > 2:
-        _draw_line(pixels, points[-1], points[0], color)
+        _draw_line(pixels, points[-1], points[0], color, thickness)
 
 
 def _draw_rect(
@@ -293,6 +419,7 @@ def _draw_rect(
     p1: Point,
     color: int,
     fill: int | None,
+    thickness: int = 1,
 ) -> None:
     x0, y0 = p0
     x1, y1 = p1
@@ -304,10 +431,51 @@ def _draw_rect(
             for x in range(left, right + 1):
                 _set_pixel(pixels, x, y, fill)
 
-    _draw_line(pixels, (left, top), (right, top), color)
-    _draw_line(pixels, (right, top), (right, bottom), color)
-    _draw_line(pixels, (right, bottom), (left, bottom), color)
-    _draw_line(pixels, (left, bottom), (left, top), color)
+    _draw_line(pixels, (left, top), (right, top), color, thickness)
+    _draw_line(pixels, (right, top), (right, bottom), color, thickness)
+    _draw_line(pixels, (right, bottom), (left, bottom), color, thickness)
+    _draw_line(pixels, (left, bottom), (left, top), color, thickness)
+
+
+def _draw_circle(
+    pixels: list[list[int]],
+    center: Point,
+    radius: int,
+    color: int,
+    fill: int | None,
+    thickness: int = 1,
+) -> None:
+    """Rasterize a circle outline, optionally filled, clipped to the canvas."""
+
+    cx, cy = center
+    radius = max(1, int(radius))
+    thickness = max(1, int(thickness))
+    height = len(pixels)
+    width = len(pixels[0]) if height else 0
+    if width == 0:
+        return
+
+    if fill is not None:
+        for y in range(cy - radius, cy + radius + 1):
+            dy = y - cy
+            if abs(dy) > radius:
+                continue
+            half_w = int(round(math.sqrt(radius * radius - dy * dy)))
+            for x in range(cx - half_w, cx + half_w + 1):
+                _set_pixel(pixels, x, y, fill)
+
+    inner = max(0, radius - thickness)
+    inner2 = inner * inner
+    outer2 = radius * radius
+    for y in range(cy - radius, cy + radius + 1):
+        dy = y - cy
+        if abs(dy) > radius:
+            continue
+        half_w = int(round(math.sqrt(radius * radius - dy * dy)))
+        for x in range(cx - half_w, cx + half_w + 1):
+            d2 = (x - cx) * (x - cx) + dy * dy
+            if d2 <= outer2 and d2 >= inner2:
+                _set_pixel(pixels, x, y, color)
 
 
 def _fill_polygon(pixels: list[list[int]], points: Sequence[Point], color: int) -> None:
@@ -436,6 +604,7 @@ class FunctionPlot:
     fn: FunctionLike
     color: int = 2
     samples: int | None = None
+    thickness: int | None = None
 
 
 @dataclass
@@ -446,6 +615,7 @@ class ShadedRegion:
     x_min: float | None = None
     x_max: float | None = None
     samples: int | None = None
+    thickness: int | None = None
 
 
 @dataclass
@@ -462,6 +632,10 @@ class Graph:
     axis_color: int = 3
     grid_color: int = 14
     samples: int = 160
+    axis_thickness: int = 1
+    grid_thickness: int = 1
+    plot_thickness: int = 2
+    shading_thickness: int = 1
     plots: list[FunctionPlot] = field(default_factory=list)
     shadings: list[ShadedRegion] = field(default_factory=list)
 
@@ -477,16 +651,26 @@ class Graph:
         self.axis_color = _clamp_color(self.axis_color)
         self.grid_color = _clamp_color(self.grid_color)
         self.samples = max(2, int(self.samples))
+        self.axis_thickness = max(1, int(self.axis_thickness))
+        self.grid_thickness = max(1, int(self.grid_thickness))
+        self.plot_thickness = max(1, int(self.plot_thickness))
+        self.shading_thickness = max(1, int(self.shading_thickness))
 
     def plot(
         self,
         fn: FunctionLike,
         color: int = 2,
         samples: int | None = None,
+        thickness: int | None = None,
     ) -> "Graph":
         if isinstance(fn, str):
             compile_math_expression(fn)
-        self.plots.append(FunctionPlot(fn=fn, color=_clamp_color(color), samples=samples))
+        self.plots.append(FunctionPlot(
+            fn=fn,
+            color=_clamp_color(color),
+            samples=samples,
+            thickness=max(1, int(thickness)) if thickness is not None else None,
+        ))
         return self
 
     def shade_under(
@@ -497,6 +681,7 @@ class Graph:
         x_min: float | None = None,
         x_max: float | None = None,
         samples: int | None = None,
+        thickness: int | None = None,
     ) -> "Graph":
         if isinstance(fn, str):
             compile_math_expression(fn)
@@ -509,6 +694,7 @@ class Graph:
             x_min=x_min,
             x_max=x_max,
             samples=samples,
+            thickness=max(1, int(thickness)) if thickness is not None else None,
         ))
         return self
 
@@ -520,6 +706,7 @@ class Graph:
         x_min: float | None = None,
         x_max: float | None = None,
         samples: int | None = None,
+        thickness: int | None = None,
     ) -> "Graph":
         if isinstance(upper, str):
             compile_math_expression(upper)
@@ -532,6 +719,7 @@ class Graph:
             x_min=x_min,
             x_max=x_max,
             samples=samples,
+            thickness=max(1, int(thickness)) if thickness is not None else None,
         ))
         return self
 
@@ -553,36 +741,37 @@ class Graph:
         for x in _tick_values(self.x_min, self.x_max):
             p0 = self.to_pixel(x, self.y_min)
             p1 = self.to_pixel(x, self.y_max)
-            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.grid_color)
+            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.grid_color, self.grid_thickness)
         for y in _tick_values(self.y_min, self.y_max):
             p0 = self.to_pixel(self.x_min, y)
             p1 = self.to_pixel(self.x_max, y)
-            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.grid_color)
+            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.grid_color, self.grid_thickness)
 
     def _draw_axes(self) -> None:
         if self.x_min <= 0 <= self.x_max:
             p0 = self.to_pixel(0, self.y_min)
             p1 = self.to_pixel(0, self.y_max)
-            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.axis_color)
+            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.axis_color, self.axis_thickness)
         if self.y_min <= 0 <= self.y_max:
             p0 = self.to_pixel(self.x_min, 0)
             p1 = self.to_pixel(self.x_max, 0)
-            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.axis_color)
+            self.canvas.line(p0[0], p0[1], p1[0], p1[1], self.axis_color, self.axis_thickness)
 
     def _draw_plots(self) -> None:
         for plot in self.plots:
             fn = _coerce_function(plot.fn)
             samples = max(2, int(plot.samples or self.samples))
+            thickness = plot.thickness if plot.thickness is not None else self.plot_thickness
             current: list[Point] = []
             for x, y in self._sample(fn, self.x_min, self.x_max, samples):
                 if y is None:
                     if len(current) >= 2:
-                        self.canvas.polyline(current, plot.color)
+                        self.canvas.polyline(current, plot.color, thickness)
                     current = []
                     continue
                 current.append(self.to_pixel(x, y))
             if len(current) >= 2:
-                self.canvas.polyline(current, plot.color)
+                self.canvas.polyline(current, plot.color, thickness)
 
     def _draw_shadings(self) -> None:
         for region in self.shadings:
@@ -609,7 +798,13 @@ class Graph:
                 top.append(self.to_pixel(x, _clamp_float(y_top, self.y_min, self.y_max)))
                 bottom.append(self.to_pixel(x, _clamp_float(y_bottom, self.y_min, self.y_max)))
             if len(top) >= 2 and len(bottom) >= 2:
-                self.canvas.area([*top, *reversed(bottom)], color=region.color, fill=region.color)
+                thickness = region.thickness if region.thickness is not None else self.shading_thickness
+                self.canvas.area(
+                    [*top, *reversed(bottom)],
+                    color=region.color,
+                    fill=region.color,
+                    thickness=thickness,
+                )
 
     def _sample(
         self,

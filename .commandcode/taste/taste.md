@@ -1,0 +1,9 @@
+- Prefers visual/rendering attributes (font sizes, line/stroke thicknesses, point/circle/polygon sizes) to be configurable parameters rather than hardcoded constants, so output can be tuned for reader readability. Confidence: 0.7
+- When drafting new markdown/deck files, prefers to mirror the style of existing example files in the repo for consistency. Confidence: 0.6
+- When producing educational decks, prefers code examples and their numeric outputs to be technically correct — actually runs the computations to verify results before including them rather than presenting unverified numbers. Confidence: 0.7
+- Verifies library/tooling behavior from source (e.g., grepping the parser) before relying on a feature rather than assuming. Confidence: 0.6
+- Works on Windows with cmd as the shell: heredocs are unavailable, so one-off scripts are written to scratchpad files and run instead of being inlined. Confidence: 0.7
+- Verifies example/library code in the actual environment before presenting it: checks package availability across interpreters (venv vs system Python), installs missing libraries, and runs the snippets rather than trusting them from memory. Confidence: 0.7
+- When a snippet cannot be verified in the current environment, keeps the code canonical and explicitly flags it as unverified instead of fabricating outputs. Confidence: 0.6
+- Visually inspects rendered diagrams/graphs (rasterizes them to an image and reviews) before finalizing a deck, rather than trusting the code alone. Confidence: 0.6
+- Cleans up temporary scratch/preview files and checks git status after verification to keep the working tree clean. Confidence: 0.6

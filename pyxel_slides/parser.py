@@ -75,6 +75,15 @@ def _parse_int(value: str, default: int = 0) -> int:
         return default
 
 
+def _parse_optional_int(value: Optional[str]) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return max(1, int(float(value)))
+    except (TypeError, ValueError):
+        return None
+
+
 def _parse_float(value: str, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -150,11 +159,12 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
     """Parse a ``pyxel-canvas`` fence into a CanvasBlock.
 
     Supported command examples:
-      ``point 12 10 color=2 size=2``
-      ``line 0 0 80 40 color=2``
-      ``curve 5,50 40,5 75,50 color=4 steps=32``
-      ``area 10,30 30,10 50,30 fill=12 color=2``
-      ``text 8 8 "hello" color=1``
+      ``point 12 10 color=2 size=2 thickness=2``
+      ``line 0 0 80 40 color=2 thickness=3``
+      ``curve 5,50 40,5 75,50 color=4 steps=32 thickness=2``
+      ``area 10,30 30,10 50,30 fill=12 color=2 thickness=2``
+      ``circle 40 40 20 color=2 fill=12 thickness=2``
+      ``text 8 8 "hello" color=1 size=2``
     """
 
     canvas_kwargs: dict = {}
@@ -175,6 +185,10 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
                 canvas_kwargs["bg"] = _parse_int(value, 0)
             elif key == "border":
                 canvas_kwargs["border"] = _parse_int(value, -1)
+            elif key in ("thickness", "line_thickness", "stroke"):
+                canvas_kwargs["default_thickness"] = _parse_int(value, 1)
+            elif key in ("text_size", "font_size", "fontsize"):
+                canvas_kwargs["default_text_size"] = _parse_int(value, 1)
             elif key == "scale":
                 scale = max(0.1, _parse_float(value, 1.0))
             elif key == "align":
@@ -188,6 +202,7 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
         verb = tokens[0].strip().lower().replace("-", "_")
         args, opts = _split_command_options(tokens[1:])
         color = _parse_int(opts.get("color", "1"), 1)
+        thickness = _parse_optional_int(opts.get("thickness"))
 
         if verb == "point" and len(args) >= 2:
             canvas.point(
@@ -195,6 +210,7 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
                 _parse_float(args[1]),
                 color=color,
                 size=_parse_int(opts.get("size", "1"), 1),
+                thickness=thickness,
             )
         elif verb == "line" and len(args) >= 4:
             canvas.line(
@@ -203,20 +219,23 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
                 _parse_float(args[2]),
                 _parse_float(args[3]),
                 color=color,
+                thickness=thickness,
             )
         elif verb in ("polyline", "path"):
-            canvas.polyline(_parse_point_tokens(args), color=color)
+            canvas.polyline(_parse_point_tokens(args), color=color, thickness=thickness)
         elif verb == "curve":
             canvas.curve(
                 _parse_point_tokens(args),
                 color=color,
                 steps=_parse_int(opts.get("steps", "32"), 32),
+                thickness=thickness,
             )
         elif verb in ("area", "polygon"):
             canvas.area(
                 _parse_point_tokens(args),
                 color=color,
                 fill=_parse_fill_option(opts.get("fill"), color),
+                thickness=thickness,
             )
         elif verb == "rect" and len(args) >= 4:
             canvas.rect(
@@ -226,6 +245,16 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
                 _parse_float(args[3]),
                 color=color,
                 fill=_parse_fill_option(opts.get("fill"), color),
+                thickness=thickness,
+            )
+        elif verb == "circle" and len(args) >= 3:
+            canvas.circle(
+                _parse_float(args[0]),
+                _parse_float(args[1]),
+                _parse_float(args[2]),
+                color=color,
+                fill=_parse_fill_option(opts.get("fill"), color),
+                thickness=thickness,
             )
         elif verb == "text" and len(args) >= 3:
             canvas.text(
@@ -233,6 +262,7 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
                 _parse_float(args[1]),
                 " ".join(args[2:]),
                 color=color,
+                size=_parse_optional_int(opts.get("size")),
             )
 
     return CanvasBlock(canvas=canvas, scale=scale, align=align, step=step)
@@ -254,6 +284,10 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
     axis_color = 3
     grid_color = 14
     samples = 160
+    axis_thickness = 1
+    grid_thickness = 1
+    plot_thickness = 2
+    shading_thickness = 1
     commands: list[list[str]] = []
 
     for tokens in _iter_directive_lines(content):
@@ -295,6 +329,14 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
                 grid_color = _parse_int(value, grid_color)
             elif key == "samples":
                 samples = _parse_int(value, samples)
+            elif key in ("axis_thickness", "axes_thickness"):
+                axis_thickness = _parse_int(value, axis_thickness)
+            elif key == "grid_thickness":
+                grid_thickness = _parse_int(value, grid_thickness)
+            elif key in ("plot_thickness", "line_thickness"):
+                plot_thickness = _parse_int(value, plot_thickness)
+            elif key == "shading_thickness":
+                shading_thickness = _parse_int(value, shading_thickness)
             continue
         commands.append(tokens)
 
@@ -309,6 +351,10 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
         axis_color=axis_color,
         grid_color=grid_color,
         samples=samples,
+        axis_thickness=axis_thickness,
+        grid_thickness=grid_thickness,
+        plot_thickness=plot_thickness,
+        shading_thickness=shading_thickness,
     )
 
     for tokens in commands:
@@ -317,10 +363,11 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
         color = _parse_int(opts.get("color", "2"), 2)
         expr = opts.get("expr") or " ".join(args)
         command_samples = _parse_int(opts.get("samples", str(samples)), samples)
+        thickness = _parse_optional_int(opts.get("thickness"))
 
         try:
             if verb in ("plot", "function", "f") and expr:
-                graph.plot(expr, color=color, samples=command_samples)
+                graph.plot(expr, color=color, samples=command_samples, thickness=thickness)
             elif verb in ("shade", "shade_under") and expr:
                 x0 = _parse_float(opts["x_min"], x_min) if "x_min" in opts else None
                 x1 = _parse_float(opts["x_max"], x_max) if "x_max" in opts else None
@@ -339,6 +386,7 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
                     x_min=x0,
                     x_max=x1,
                     samples=command_samples,
+                    thickness=thickness,
                 )
             elif verb in ("shade_between", "between"):
                 upper = opts.get("upper")
@@ -358,6 +406,7 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
                         x_min=x0,
                         x_max=x1,
                         samples=command_samples,
+                        thickness=thickness,
                     )
         except (SyntaxError, UnsafeExpressionError, ValueError):
             continue

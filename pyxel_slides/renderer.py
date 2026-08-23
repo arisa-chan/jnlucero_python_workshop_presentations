@@ -1238,7 +1238,22 @@ class SlideRenderer:
             if not cmd.points:
                 continue
             tx, ty = cmd.points[0]
-            img.text(tx, ty, cmd.text, cmd.color)
+            text_scale = max(1, int(cmd.text_size))
+            if text_scale > 1:
+                text_img = pyxel.Image(len(cmd.text) * BUILTIN_GLYPH_W, BUILTIN_GLYPH_H)
+                text_img.text(0, 0, cmd.text, cmd.color)
+                for gy in range(BUILTIN_GLYPH_H):
+                    for gx in range(len(cmd.text) * BUILTIN_GLYPH_W):
+                        if text_img.pget(gx, gy) == cmd.color:
+                            for sy in range(text_scale):
+                                for sx in range(text_scale):
+                                    img.pset(
+                                        tx + gx * text_scale + sx,
+                                        ty + gy * text_scale + sy,
+                                        cmd.color,
+                                    )
+            else:
+                img.text(tx, ty, cmd.text, cmd.color)
 
         scale = max(0.1, float(cb.scale))
         available_h = max(1, self.height - y - self.theme.padding)

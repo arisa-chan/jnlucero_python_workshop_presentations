@@ -63,6 +63,183 @@ def test_graph_draws_plot_into_canvas():
     assert any(2 in row for row in pixels)
 
 
+def test_canvas_line_thickness_widens_stroke():
+    canvas = Canvas(width=16, height=16, bg=0)
+    canvas.line(2, 8, 13, 8, color=2, thickness=3)
+
+    pixels = canvas.rasterize()
+
+    assert pixels[8][2] == 2
+    assert pixels[7][2] == 2
+    assert pixels[9][2] == 2
+    assert pixels[6][2] == 0
+
+
+def test_canvas_thin_line_is_single_pixel():
+    canvas = Canvas(width=16, height=16, bg=0)
+    canvas.line(2, 8, 13, 8, color=2, thickness=1)
+
+    pixels = canvas.rasterize()
+
+    assert pixels[8][2] == 2
+    assert pixels[7][2] == 0
+    assert pixels[9][2] == 0
+
+
+def test_canvas_default_thickness_applies_to_all_commands():
+    canvas = Canvas(width=16, height=16, bg=0, default_thickness=2)
+    canvas.line(2, 8, 13, 8, color=2)
+
+    pixels = canvas.rasterize()
+
+    assert pixels[8][2] == 2
+    assert pixels[7][2] == 2
+    assert pixels[6][2] == 0
+
+
+def test_canvas_rect_and_area_thickness():
+    canvas = Canvas(width=20, height=20, bg=0)
+    canvas.rect(4, 4, 11, 11, color=2, thickness=3)
+    canvas.area([(2, 15), (17, 15), (17, 18)], color=3, thickness=2)
+
+    pixels = canvas.rasterize()
+
+    assert pixels[4][5] == 2
+    assert pixels[5][4] == 2
+    assert pixels[2][4] == 0
+    assert pixels[15][3] == 3
+    assert pixels[16][3] == 3
+
+
+def test_canvas_circle_outline_and_fill():
+    canvas = Canvas(width=32, height=32, bg=0)
+    canvas.circle(16, 16, 10, color=2, fill=12, thickness=2)
+
+    pixels = canvas.rasterize()
+
+    assert pixels[16][16] == 12
+    assert pixels[16][6] == 2
+    assert pixels[16][5] == 0
+    assert pixels[26][16] == 2
+
+
+def test_canvas_circle_outline_only():
+    canvas = Canvas(width=32, height=32, bg=0)
+    canvas.circle(16, 16, 10, color=2)
+
+    pixels = canvas.rasterize()
+
+    assert pixels[16][16] == 0
+    assert pixels[16][6] == 2
+
+
+def test_canvas_curve_thickness():
+    canvas = Canvas(width=24, height=24, bg=0)
+    canvas.curve([(2, 12), (12, 2), (21, 12)], color=4, steps=32, thickness=3)
+
+    pixels = canvas.rasterize()
+
+    assert pixels[12][2] == 4
+    assert pixels[13][2] == 4
+    assert pixels[14][2] == 0
+    assert pixels[7][12] == 4
+    assert pixels[5][12] == 0
+
+
+def test_canvas_text_size_stored_on_command():
+    canvas = Canvas(width=32, height=16)
+    canvas.text(4, 5, "hello", color=3, size=2)
+
+    assert canvas.text_commands[0].text_size == 2
+
+
+def test_canvas_default_text_size():
+    canvas = Canvas(width=32, height=16, default_text_size=3)
+    canvas.text(4, 5, "hello", color=3)
+
+    assert canvas.text_commands[0].text_size == 3
+
+
+def test_graph_thickness_fields_applied():
+    canvas = Canvas(width=64, height=32, bg=0)
+    graph = Graph(
+        canvas,
+        x_min=-1, x_max=1, y_min=-1, y_max=1,
+        axes=True,
+        grid=True,
+        axis_thickness=3,
+        grid_thickness=1,
+        plot_thickness=2,
+    )
+    graph.plot("x", color=2, samples=20).draw()
+
+    pixels = canvas.rasterize()
+
+    assert any(2 in row for row in pixels)
+    assert all(cmd.thickness in (1, 2, 3) for cmd in canvas.commands)
+
+
+def test_graph_plot_thickness_option():
+    canvas = Canvas(width=64, height=32, bg=0)
+    graph = Graph(canvas, x_min=-1, x_max=1, y_min=-1, y_max=1, axes=False)
+    graph.plot("0", color=2, samples=20, thickness=3).draw()
+
+    plots = [cmd for cmd in canvas.commands if cmd.kind == "polyline"]
+    assert plots and all(cmd.thickness == 3 for cmd in plots)
+
+
+def test_parse_canvas_fence_thickness_circle_text():
+    md = """\
+```pyxel-canvas
+width=40
+height=20
+thickness=2
+line 0 0 39 19 color=2
+circle 20 10 8 color=5 fill=12 thickness=1
+text 2 2 "hello" color=1 size=2
+```
+"""
+    slides = parse_markdown(md)
+
+    block = slides[0].blocks[0]
+    assert isinstance(block, CanvasBlock)
+    assert block.canvas.default_thickness == 2
+    kinds = {cmd.kind for cmd in block.canvas.commands}
+    assert "circle" in kinds
+    line = next(cmd for cmd in block.canvas.commands if cmd.kind == "line")
+    circle = next(cmd for cmd in block.canvas.commands if cmd.kind == "circle")
+    text = next(cmd for cmd in block.canvas.commands if cmd.kind == "text")
+    assert line.thickness == 2
+    assert circle.thickness == 1
+    assert circle.fill == 12
+    assert text.text_size == 2
+
+
+def test_parse_graph_fence_thickness_options():
+    md = """\
+```pyxel-graph
+width=80
+height=50
+x=-3.14,3.14
+y=-1.5,1.5
+grid=true
+plot_thickness=3
+axis_thickness=2
+plot sin(x) color=2 thickness=1
+shade_under cos(x) baseline=0 color=12 x=-1.57,1.57 thickness=2
+```
+"""
+    slides = parse_markdown(md)
+
+    block = slides[0].blocks[0]
+    assert isinstance(block, CanvasBlock)
+    plots = [cmd for cmd in block.canvas.commands if cmd.kind == "polyline"]
+    areas = [cmd for cmd in block.canvas.commands if cmd.kind == "area"]
+    assert any(cmd.thickness == 1 for cmd in plots)
+    assert any(cmd.thickness == 2 for cmd in areas)
+    assert any(cmd.thickness == 2 for cmd in block.canvas.commands if cmd.kind == "line")
+
+
 def test_parse_canvas_fence_produces_canvas_block():
     md = """\
 ```pyxel-canvas
