@@ -108,7 +108,25 @@ class TableBlock:
     headers: List[str]
     rows: List[List[str]]
     col_widths: Optional[List[int]] = None  # Optional column widths in pixels
+    align: Literal["left", "center", "right"] = "left"  # Horizontal alignment of the whole table
     step: int = 1  # Step number for progressive display
+
+
+@dataclass
+class FlowBlock:
+    """An auto-laid-out flowchart parsed from a ``pyxel-flow`` fence.
+
+    Nodes are drawn as boxes with centered text, chained with arrows
+    either top-to-bottom (``direction=down``) or left-to-right
+    (``direction=right``).  Labels may contain ``|`` for line breaks.
+    """
+
+    nodes: List[str]
+    direction: Literal["down", "right"] = "down"
+    color: int = 2         # box outline + arrow colour (palette index)
+    fill: int = -1         # box fill colour (-1 = theme panel background)
+    gap: int = 10          # spacing between boxes in pixels
+    step: int = 1
 
 
 @dataclass
@@ -167,7 +185,7 @@ class ColumnBreak:
     """
 
 
-Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, CanvasBlock, SpriteBlock, TableBlock, BoxBlock, ColumnBreak]
+Block = Union[Heading, Paragraph, ListBlock, CodeBlock, ImageBlock, MathBlock, CanvasBlock, SpriteBlock, TableBlock, BoxBlock, FlowBlock, ColumnBreak]
 
 
 @dataclass

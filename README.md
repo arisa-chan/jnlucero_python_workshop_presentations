@@ -4,11 +4,13 @@ A Markdown-driven retro presentation engine built on [Pyxel](https://github.com/
 
 `pyxel-slides` turns a Markdown deck into a pixel-art presentation with
 keyboard navigation, hot reload, themed palettes, syntax-highlighted code,
-dithered images, math rendering, custom canvas/graph blocks, sprites, tables,
-two-column layouts, incremental reveal, presenter tools, and PNG export.
+dithered images, math rendering, custom canvas/graph blocks, flowcharts,
+sprites, tables, two-column layouts, incremental reveal, presenter tools,
+and PNG export.
 
-The example deck in `examples/demo.md` is the PUP Mathematics Gradient 2026
-Python workshop presentation.
+Example decks live in `examples/`: the ASEP Webtalk FEA deck
+(`webtalk4_python_fea.md`), the DLSU Data Society workshop, and the PUP
+Mathematics Gradient 2026 workshop.
 
 ## Features
 
@@ -18,13 +20,14 @@ Python workshop presentation.
 - Code panels with line numbers and optional Pygments syntax highlighting.
 - Local and remote image blocks, resized and Floyd-Steinberg dithered into the active 16-color palette.
 - Display math via Matplotlib mathtext, plus inline math rendered at text height when optional dependencies are installed.
-- Pipe tables with header styling and alternating row backgrounds.
+- Pipe tables with header styling, alternating row backgrounds, content-fit or explicit column widths, cell text wrapping, and left/center/right table alignment.
 - Two-column slide layout with a standalone `|||` separator.
 - Incremental reveal with `<!-- incremental -->` or `<!-- step -->` comments.
 - `pyxel-canvas` blocks for points, lines, curves, filled areas, rectangles, and text.
+- `pyxel-flow` blocks for auto-laid-out flowcharts with arrow-connected boxes.
 - `pyxel-graph` blocks for safe one-variable math plots, grids, axes, and shaded regions.
 - `pyxel-sprite` blocks that render static or animated sprites from a `.pyxres` resource file.
-- Built-in themes: `vscode_light` (default), `gameboy`, `gradient`, and `arcade_space`.
+- Built-in themes: `vscode_light` (default), `gameboy`, `gradient`, `arcade_space`, and `asep_structural` (with a decorative masonry motif on title slides).
 - Downloaded BDF fonts with a built-in Pyxel 4x6 fallback.
 - Presenter chrome: slide counter, progress bar, presenter timer, overview grid, and hot reload.
 - Export mode that renders every slide to `slide_NNN.png`.
@@ -53,27 +56,45 @@ pip install -e ".[full,dev]"
 ## Run
 
 ```bash
-pyxel-slides examples/demo.md
+pyxel-slides examples/webtalk4_python_fea.md
 ```
 
 Useful options:
 
 ```bash
-pyxel-slides examples/demo.md --theme gradient
-pyxel-slides examples/demo.md --theme arcade_space
-pyxel-slides examples/demo.md --resolution 480x270 --fps 60
-pyxel-slides examples/demo.md --title "Python Workshop"
-pyxel-slides examples/demo.md --pyxres examples/demo.pyxres
-pyxel-slides examples/demo.md --typewriter
-pyxel-slides examples/demo.md --no-hot-reload
-pyxel-slides examples/demo.md --no-fonts
-pyxel-slides examples/demo.md --export-dir exported-slides
+pyxel-slides examples/webtalk4_python_fea.md --theme gradient
+pyxel-slides examples/webtalk4_python_fea.md --theme arcade_space
+pyxel-slides examples/webtalk4_python_fea.md --theme asep_structural
+pyxel-slides examples/webtalk4_python_fea.md --resolution 480x270 --fps 60
+pyxel-slides examples/webtalk4_python_fea.md --title "Python Workshop"
+pyxel-slides examples/webtalk4_python_fea.md --pyxres examples/demo.pyxres
+pyxel-slides examples/webtalk4_python_fea.md --typewriter
+pyxel-slides examples/webtalk4_python_fea.md --no-hot-reload
+pyxel-slides examples/webtalk4_python_fea.md --no-fonts
+pyxel-slides examples/webtalk4_python_fea.md --export-dir exported-slides
 ```
 
 The default resolution is `384x216`.
 If a `<deck>.pyxres` file exists next to the Markdown file, it is loaded
 automatically. The first normal run may download BDF fonts into
 `~/.cache/pyxel_slides/fonts/`; pass `--no-fonts` to use Pyxel's built-in font.
+
+## Themes
+
+Pass `--theme NAME` to pick one of the built-in palettes:
+
+| Theme | Description |
+| --- | --- |
+| `vscode_light` (default) | White slides with VS Code Light+ syntax colors, blue chrome |
+| `gameboy` | Classic Game Boy DMG 4-shade green palette |
+| `gradient` | "Rising Along the Gradient" poster: deep purple, lavender text, violet/pink/gold accents |
+| `arcade_space` | Python Workshop O-Day poster: starfield navy, arcade yellow, rocket blues |
+| `asep_structural` | ASEP Webtalk deck: deep navy `#3C3E95`, mustard gold `#EEBD54`/`#B38B3E`, and periwinkle/lavender accents on white content slides |
+
+Themes can define a decorative motif that renders behind title and
+section-header slides. `asep_structural` uses a "masonry" motif: clusters of
+rounded-rectangle blocks in navy, gold, and lavender anchored to the bottom
+corners, evoking the structural-engineering branding of the deck.
 
 ## Controls
 
@@ -165,8 +186,34 @@ then name, position/work, and date as separate lines.
 | `|||` on its own paragraph | Two-column break |
 | `<!-- incremental -->` / `<!-- step -->` | Increment following blocks to the next reveal step |
 | ```` ```pyxel-canvas ```` | Pixel canvas diagram |
+| ```` ```pyxel-flow ```` | Auto-laid-out flowchart |
 | ```` ```pyxel-graph ```` | Function graph canvas |
 | ```` ```pyxel-sprite ```` | Pyxel image-bank sprite |
+
+### Tables
+
+Pipe tables render with a styled header row and alternating row backgrounds.
+By default each column is sized to fit its content (not split equally), and
+cell text that overflows its column wraps onto extra lines instead of being
+clipped.
+
+A paragraph placed immediately above the table can set layout metadata:
+
+- `col_widths=140,220` - explicit column widths in pixels. A value of `0`
+  leaves that column on auto (it shares whatever width remains). When the
+  widths total more than the slide width, they are scaled down proportionally.
+- `align=left|center|right` - horizontal position of the whole table within
+  the slide (default `left`).
+
+```markdown
+align=center
+col_widths=80,0
+
+| Aspect | Description |
+| --- | --- |
+| Cost | Free |
+| Customize | A much longer description that wraps inside its column |
+```
 
 ## Canvas Blocks
 
@@ -183,6 +230,7 @@ align=center
 thickness=2
 text_size=1
 line 10 100 210 20 color=2
+arrow 20 60 200 60 color=2 head=8 thickness=2
 curve 20,100 80,10 140,10 200,100 color=4 steps=48 thickness=3
 area 40,85 90,45 140,85 fill=12 color=2 thickness=2
 rect 152 62 42 28 color=5 fill=13 thickness=2
@@ -192,7 +240,8 @@ text 12 10 "Canvas demo" color=1 size=2
 ````
 
 Supported commands include `point`, `line`, `polyline` / `path`, `curve`,
-`area` / `polygon`, `rect`, `circle`, and `text`.
+`area` / `polygon`, `rect`, `circle`, `text`, and `arrow` (a line with a
+filled triangular arrowhead; `head=N` sets its length in pixels).
 
 Readability options:
 
@@ -207,6 +256,36 @@ Readability options:
 
 The header `thickness=` and `text_size=` set the default for every command in
 the block; per-command `thickness=` and `size=` override them.
+
+## Flowcharts
+
+Use a `pyxel-flow` fence for auto-laid-out flowcharts. Each line is a node
+box; boxes are chained with arrows either top-to-bottom (`direction=down`,
+the default) or left-to-right (`direction=right`). A `|` inside a label
+forces a line break; the whole chart is centered horizontally.
+
+````markdown
+```pyxel-flow
+direction=down
+color=2
+gap=8
+Loads and supports|F, fixed
+Solve F = K d|np.linalg.solve
+Post-process|reactions, member forces
+```
+````
+
+Flow options:
+
+| Option | Meaning |
+| --- | --- |
+| `direction=down` / `right` | Chain direction (default `down`) |
+| `color=N` | Box outline and arrow colour (palette index) |
+| `gap=N` | Spacing between boxes in pixels (default `10`) |
+| `fill=N` | Box fill colour; default is the theme code-panel background with code-panel text |
+
+Horizontal chains are width-capped so they never overflow the slide; labels
+that don't fit wrap onto extra lines inside their box.
 
 ## Graph Blocks
 
@@ -257,9 +336,10 @@ graph.plot("x^2 - 1", color=2).shade_under("sin(x)", color=12).draw()
 ```
 
 Every `Canvas` stroke method (`point`, `line`, `polyline`, `curve`, `area`,
-`rect`, `circle`) takes a `thickness` keyword in pixels, and `text` takes a
-`size` keyword for integer font scaling. Omitting the keyword falls back to the
-canvas default.
+`rect`, `circle`, `arrow`) takes a `thickness` keyword in pixels, and `text`
+takes a `size` keyword for integer font scaling. Omitting the keyword falls
+back to the canvas default. `arrow` additionally takes `head=` for the
+arrowhead length.
 
 ## Sprites
 
@@ -306,7 +386,7 @@ Sprite fields:
 Render every slide to PNG and quit:
 
 ```bash
-pyxel-slides examples/demo.md --theme gradient --export-dir exported-slides
+pyxel-slides examples/webtalk4_python_fea.md --theme asep_structural --export-dir exported-slides
 ```
 
 Files are written as:
@@ -328,34 +408,42 @@ helpers, and optional-dependency probes:
 ```python
 from pathlib import Path
 
-from pyxel_slides import ARCADE_SPACE, Canvas, Graph, SlidesApp, parse_markdown
+from pyxel_slides import ASEP_STRUCTURAL, ARCADE_SPACE, Canvas, FlowBlock, Graph, SlidesApp, parse_markdown
 
-slides = parse_markdown(Path("examples/demo.md").read_text(encoding="utf-8"))
+slides = parse_markdown(Path("examples/webtalk4_python_fea.md").read_text(encoding="utf-8"))
 
 canvas = Canvas(width=120, height=80).line(0, 0, 119, 79, color=2)
+canvas.arrow(10, 40, 110, 40, color=2, head=6)   # line with arrowhead
 graph = Graph(Canvas(width=120, height=80), x_min=-3, x_max=3).plot("sin(x)")
 
-app = SlidesApp(Path("examples/demo.md"), theme=ARCADE_SPACE, width=480, height=270)
+app = SlidesApp(Path("examples/webtalk4_python_fea.md"), theme=ASEP_STRUCTURAL, width=480, height=270)
 app.run()
 ```
+
+`TableBlock` exposes `col_widths` (pixel widths per column, `0` = auto) and
+`align` (`"left"`, `"center"`, or `"right"`) for programmatic table layout.
+`FlowBlock` holds flowchart nodes (`nodes`, `direction`, `color`, `gap`) as
+parsed from `pyxel-flow` fences.
 
 ## Project Layout
 
 ```text
 pyxel_slides/
   app.py          # Pyxel window, input, navigation, timer, overview, export
-  canvas.py       # Canvas and Graph primitives
+  canvas.py       # Canvas, Graph primitives, arrow drawing
   cli.py          # pyxel-slides command-line entry point
   dither.py       # Image resizing and Floyd-Steinberg dithering
   highlight.py    # Pygments token mapping
-  ir.py           # Slide/block dataclasses
+  ir.py           # Slide/block dataclasses (incl. FlowBlock, TableBlock)
   mathtext.py     # Matplotlib mathtext rasterization
-  parser.py       # Markdown to slide IR
-  renderer.py     # Slide IR to Pyxel draw calls
+  parser.py       # Markdown to slide IR (canvas/graph/flow/sprite fences)
+  renderer.py     # Slide IR to Pyxel draw calls (incl. table + flowchart layout)
   theme.py        # Built-in palettes and theme roles
   assets/fonts.py # BDF font download/cache/loading
 examples/
-  demo.md
+  webtalk4_python_fea.md
+  dlsu_data_society_python_workshop_2.md
+  pup_mathematics_gradient_2026 copy.md
 tests/
   test_*.py
 pyproject.toml

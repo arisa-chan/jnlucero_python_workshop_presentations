@@ -1,9 +1,9 @@
 """pyxel-slides: a Markdown-driven retro presentation engine on top of Pyxel."""
 
 from .canvas import Canvas, Graph, UnsafeExpressionError, compile_math_expression
-from .ir import Block, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TextRun, plain
+from .ir import Block, BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, FlowBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
 from .parser import parse_markdown
-from .theme import Theme, ARCADE_SPACE, GAMEBOY, VSCODE_LIGHT, GRADIENT
+from .theme import Theme, ARCADE_SPACE, ASEP_STRUCTURAL, GAMEBOY, VSCODE_LIGHT, GRADIENT
 from .app import SlidesApp
 from .renderer import SlideRenderer, draw_run_line, _hit_test
 from .assets.fonts import FontSet, ensure_fonts
@@ -23,6 +23,9 @@ __all__ = [
     "CanvasBlock",
     "SpriteBlock",
     "ColumnBreak",
+    "FlowBlock",
+    "TableBlock",
+    "BoxBlock",
     "TextRun",
     "plain",
     "Canvas",
@@ -32,6 +35,7 @@ __all__ = [
     "parse_markdown",
     "Theme",
     "ARCADE_SPACE",
+    "ASEP_STRUCTURAL",
     "GAMEBOY",
     "VSCODE_LIGHT",
     "GRADIENT",

@@ -7,3 +7,17 @@
 - When a snippet cannot be verified in the current environment, keeps the code canonical and explicitly flags it as unverified instead of fabricating outputs. Confidence: 0.6
 - Visually inspects rendered diagrams/graphs (rasterizes them to an image and reviews) before finalizing a deck, rather than trusting the code alone. Confidence: 0.6
 - Cleans up temporary scratch/preview files and checks git status after verification to keep the working tree clean. Confidence: 0.6
+- Checks for existing/uncommitted work (git status, git diff) before implementing a new feature or theme, to avoid duplicating code that is already present. Confidence: 0.7
+- Runs the full test suite before and after changes and reports the pass count to confirm nothing breaks. Confidence: 0.7
+- Prefers ASCII-safe characters in print/console output (e.g., "->" instead of "→") to avoid Windows cp1252 console encoding crashes. Confidence: 0.6
+- Prefers table/layout elements to be flexible rather than fixed equal-width distribution: wants varying column widths fit to content and alignment options (left, center, edge). Confidence: 0.7
+- Prefers overflowing text in table cells to wrap onto additional lines (with row height growing to fit) rather than being truncated or clipped. Confidence: 0.7
+- Keeps README/documentation in sync with code changes, documenting new features, CLI flags, themes, and IR fields comprehensively (dedicated sections, description tables with hex colors, runnable examples) rather than minimal patches. Confidence: 0.7
+- Before editing documentation, checks what is already covered (reads/greps the file) and only adds the missing pieces to avoid duplicating existing content. Confidence: 0.6
+- Before revising an existing deck or document, reads the entire file first to understand its structure and choose sensible insertion points, rather than editing fragments in isolation. Confidence: 0.6
+- When the vision model can't reliably read a rendered image (or times out), falls back to programmatic pixel verification — color histograms, bounding boxes of specific palette colors, and standalone canvas rasterization — to confirm diagrams render as designed rather than trusting visual inspection alone. Confidence: 0.7
+- For "terms + visualizations" content, prefers a two-column layout (`|||`) with the term definitions as a bulleted list on the left and a pyxel-canvas diagram on the right. Confidence: 0.6
+- When revising educational slide decks, prefers content to skew visual over textual: short, punchy text blocks and diagrams (flowcharts, process charts, textual graphics) instead of long prose or dense bullet lists. Confidence: 0.8
+- Welcomes enhancing the underlying slides engine with new primitives/blocks (e.g., an arrow command, an auto-layout flowchart block) to support richer visuals, rather than working only within existing features. Confidence: 0.7
+- For sequential or step-by-step content (pipelines, workflows, solver steps), prefers flowchart/process-chart diagrams over tables or numbered lists. Confidence: 0.6
+- When documenting an API in the README, verifies the documented code actually works as written (runs the example snippet, checks that referenced names/classes are actually exported) and fixes the underlying code when the docs expose a gap (e.g., missing package exports) rather than just documenting. Confidence: 0.7

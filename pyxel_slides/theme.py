@@ -7,6 +7,9 @@ Phase 9+: Gradient theme — inspired by the "Rising Along the Gradient"
 event poster: deep purple background, lavender text, violet/pink/gold accents.
 Phase 10+: Arcade Space theme — inspired by the Python Workshop O-Day poster:
 starfield navy, chunky black outlines, rocket blues, and hot yellow/orange type.
+Phase 12+: ASEP Structural theme — inspired by the ASEP Webtalk deck: deep navy
+(#3C3E95) and warm mustard gold (#B38B3E / #EEBD54) anchored on white content
+slides, with periwinkle/lavender (#8A8BBF / #B1B2D5) as soft accents.
 """
 
 from __future__ import annotations
@@ -74,6 +77,14 @@ class Theme:
     # ---- Layout ---------------------------------------------------------
     padding:      int = 8
     line_spacing: int = 2
+
+    # ---- Decorative motif (title & section-header slides) ---------------
+    motif: str = "none"                     # "none" | "masonry"
+    motif_blocks: List[Tuple[float, float, float, float, int]] = field(default_factory=list)
+    # Each block: (x_frac, bottom_frac, w_frac, h_frac, colour_index).
+    # x/w are fractions of slide width; bottom/h are fractions of slide
+    # height with the block's bottom edge anchored bottom_frac above the
+    # slide's bottom edge.  Only consulted when motif != "none".
 
     # ---- Internals ------------------------------------------------------
 
@@ -296,6 +307,83 @@ ARCADE_SPACE = Theme(
     highlight_fg=COL_ALT,   # 15 – star-white highlight text
     padding=8,
     line_spacing=2,
+)
+
+
+# --------------------------------------------------------------------------- #
+# ASEP Structural theme  (ASEP Webtalk deck palette)
+# --------------------------------------------------------------------------- #
+#
+# Colours sampled from the "Association of Structural Engineers of the
+# Philippines" Webtalk deck:
+#   Background    #FFFFFF   Primary text       #20224B
+#   Deep navy     #3C3E95   Mustard gold       #EEBD54
+#   Darker gold   #B38B3E   Periwinkle         #8A8BBF
+#   Lavender      #B1B2D5   Near-white tint    #EEF0FF
+#   Light gray    #F5F6FA   Pure white         #FFFFFF
+#   Highlight bg  #EEBD54   Code pill bg       #3C3E95
+#   Border        #B1B2D5   Dark navy text     #20224B
+
+def _asep_palette() -> List[int]:
+    return [
+        0xFFFFFF,  #  0  COL_BG       – white (content slides)
+        0x20224B,  #  1  COL_FG       – near-black navy (primary text)
+        0x3C3E95,  #  2  COL_ACCENT   – deep navy (links, bullets, chrome)
+        0x8A8BBF,  #  3  COL_MUTED    – periwinkle (secondary text)
+        0xB38B3E,  #  4  COL_KEYWORD  – darker mustard gold
+        0xB1B2D5,  #  5  COL_STRING   – lavender
+        0x8A8BBF,  #  6  COL_COMMENT  – periwinkle (comments)
+        0xEEBD54,  #  7  COL_NUMBER   – bright mustard gold
+        0xEEBD54,  #  8  COL_BUILTIN  – bright mustard gold (builtins)
+        0x3C3E95,  #  9  COL_PANEL_BG – deep navy code panels
+        0x3C3E95,  # 10  COL_HEADING  – deep navy (section titles)
+        0xB38B3E,  # 11  COL_SPECIAL  – darker gold (decorators)
+        0xEEBD54,  # 12  COL_HILIGHT  – mustard gold highlight pill bg
+        0x3C3E95,  # 13  COL_CPILL    – deep navy inline-code pill
+        0xB1B2D5,  # 14  COL_BORDER   – lavender borders
+        0xF5F6FA,  # 15  COL_ALT      – light gray-lavender
+    ]
+
+
+ASEP_STRUCTURAL = Theme(
+    name="asep_structural",
+    palette=_asep_palette(),
+    bg=COL_BG,              # 0  – white
+    fg=COL_FG,              # 1  – near-black navy
+    accent=COL_ACCENT,      # 2  – deep navy
+    muted=COL_MUTED,        # 3  – periwinkle
+    # syntax (rendered on the deep-navy code panel)
+    keyword=COL_KEYWORD,    # 4  – darker gold keywords
+    string_col=COL_STRING,  # 5  – lavender strings
+    comment_col=COL_COMMENT,# 6  – periwinkle comments
+    number_col=COL_NUMBER,  # 7  – bright gold numbers
+    builtin_col=COL_BUILTIN,# 8  – bright gold builtins
+    code_fg=COL_ALT,        # 15 – near-white code text on navy panels
+    # UI
+    panel_bg=COL_PANEL_BG,  # 9  – deep navy code panels
+    heading=COL_HEADING,    # 10 – deep navy headings
+    link=COL_ACCENT,        # 2  – deep navy links
+    code_pill=COL_CPILL,    # 13 – deep navy inline-code pill
+    code_pill_fg=COL_BG,    # 0  – white text on navy pill
+    highlight_bg=COL_HILIGHT,# 12 – mustard gold highlight
+    highlight_fg=COL_FG,    # 1  – near-black navy text on gold
+    padding=8,
+    line_spacing=2,
+    # Masonry motif — floating rounded-rect clusters anchored to the
+    # bottom corners of title / section-header slides.
+    motif="masonry",
+    motif_blocks=[
+        # bottom-left cluster (tall navy stack + gold/lavender accents)
+        (0.02, 0.00, 0.14, 0.10, COL_ACCENT),
+        (0.16, 0.00, 0.08, 0.16, COL_HILIGHT),
+        (0.24, 0.00, 0.06, 0.06, COL_BORDER),
+        (0.02, 0.10, 0.06, 0.08, COL_MUTED),
+        # bottom-right cluster (navy slab + darker-gold cap)
+        (0.82, 0.00, 0.16, 0.12, COL_ACCENT),
+        (0.78, 0.12, 0.09, 0.06, COL_SPECIAL),
+        (0.87, 0.06, 0.07, 0.06, COL_HILIGHT),
+        (0.68, 0.00, 0.07, 0.08, COL_BORDER),
+    ],
 )
 
 

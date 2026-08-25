@@ -135,7 +135,7 @@ class SlidesApp:
             self._exporting = True
             self._export_frame = 0
             self.export_dir.mkdir(parents=True, exist_ok=True)
-            print(f"[pyxel-slides] Export mode → {self.export_dir}")
+            print(f"[pyxel-slides] Export mode -> {self.export_dir}")
 
         pyxel.run(self.update, self.draw)
 
@@ -281,7 +281,7 @@ class SlidesApp:
                 self._export_frame += 1
                 if self._export_frame >= len(self.slides):
                     n = len(self.slides)
-                    print(f"[pyxel-slides] Export complete: {n} slide(s) → {self.export_dir}")
+                    print(f"[pyxel-slides] Export complete: {n} slide(s) -> {self.export_dir}")
             else:
                 pyxel.cls(self.theme.bg)
             return

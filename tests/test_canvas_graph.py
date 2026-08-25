@@ -6,7 +6,7 @@ import pytest
 import math
 
 from pyxel_slides.canvas import Canvas, Graph, UnsafeExpressionError, compile_math_expression
-from pyxel_slides.ir import CanvasBlock
+from pyxel_slides.ir import CanvasBlock, FlowBlock
 from pyxel_slides.parser import parse_markdown
 
 
@@ -281,3 +281,76 @@ shade_under cos(x) baseline=0 color=12 x=-1.57,1.57
     assert block.canvas.height == 50
     assert any(cmd.kind == "polyline" and cmd.color == 2 for cmd in block.canvas.commands)
     assert any(cmd.kind == "area" and cmd.fill == 12 for cmd in block.canvas.commands)
+
+
+# --------------------------------------------------------------------------- #
+# arrow command
+# --------------------------------------------------------------------------- #
+
+def test_canvas_arrow_rasterizes_line_and_head():
+    canvas = Canvas(width=40, height=20, bg=0)
+    canvas.arrow(4, 10, 34, 10, color=2, head=6)
+
+    pixels = canvas.rasterize()
+    # Arrow tip at (34, 10); ensure the head triangle pixels are filled.
+    assert pixels[10][34] == 2
+    assert pixels[10][4] == 2  # start of the shaft
+    arrow_px = sum(1 for row in pixels for v in row if v == 2)
+    assert arrow_px > 8  # shaft + head
+
+    cmds = [c for c in canvas.commands if c.kind == "arrow"]
+    assert len(cmds) == 1
+    assert cmds[0].points == [(4, 10), (34, 10)]
+
+
+def test_parse_canvas_fence_arrow_command():
+    md = """\
+```pyxel-canvas
+width=40
+height=20
+arrow 2 10 36 10 color=2 head=7 thickness=2
+```
+"""
+    block = parse_markdown(md)[0].blocks[0]
+    assert isinstance(block, CanvasBlock)
+    arrow = next(cmd for cmd in block.canvas.commands if cmd.kind == "arrow")
+    assert arrow.points == [(2, 10), (36, 10)]
+    assert arrow.color == 2
+    assert arrow.radius == 7
+    assert arrow.thickness == 2
+
+
+# --------------------------------------------------------------------------- #
+# pyxel-flow fences
+# --------------------------------------------------------------------------- #
+
+def test_parse_flow_fence_basic():
+    md = """\
+```pyxel-flow
+A
+B
+C
+```
+"""
+    block = parse_markdown(md)[0].blocks[0]
+    assert isinstance(block, FlowBlock)
+    assert block.nodes == ["A", "B", "C"]
+    assert block.direction == "down"
+
+
+def test_parse_flow_fence_options_and_pipes():
+    md = """\
+```pyxel-flow
+direction=right
+color=5
+gap=12
+Step 1|first
+Step 2|second
+```
+"""
+    block = parse_markdown(md)[0].blocks[0]
+    assert isinstance(block, FlowBlock)
+    assert block.direction == "right"
+    assert block.color == 5
+    assert block.gap == 12
+    assert block.nodes == ["Step 1|first", "Step 2|second"]

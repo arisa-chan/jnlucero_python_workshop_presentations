@@ -22,7 +22,7 @@ from markdown_it import MarkdownIt
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 
 from .canvas import Canvas, Graph, UnsafeExpressionError
-from .ir import Block, BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
+from .ir import Block, BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, FlowBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun
 
 
 # --------------------------------------------------------------------------- #
@@ -221,6 +221,16 @@ def _parse_canvas_block(content: str, step: int = 1) -> CanvasBlock:
                 color=color,
                 thickness=thickness,
             )
+        elif verb == "arrow" and len(args) >= 4:
+            canvas.arrow(
+                _parse_float(args[0]),
+                _parse_float(args[1]),
+                _parse_float(args[2]),
+                _parse_float(args[3]),
+                color=color,
+                head=_parse_int(opts.get("head", "6"), 6),
+                thickness=thickness,
+            )
         elif verb in ("polyline", "path"):
             canvas.polyline(_parse_point_tokens(args), color=color, thickness=thickness)
         elif verb == "curve":
@@ -414,6 +424,43 @@ def _parse_graph_block(content: str, step: int = 1) -> CanvasBlock:
     return CanvasBlock(canvas=graph.draw(), scale=scale, align=align, step=step)
 
 
+def _parse_flow_block(content: str, step: int = 1) -> FlowBlock:
+    """Parse a ``pyxel-flow`` fence into a FlowBlock.
+
+    The body is a list of node labels, one per line.  A leading
+    ``direction=down|right`` line sets the chain direction; ``color=``
+    and ``gap=`` set style.  Labels may contain ``|`` to force a line
+    break inside the box.
+    """
+    direction: Literal["down", "right"] = "down"
+    color = 2
+    fill = -1
+    gap = 10
+    nodes: List[str] = []
+    for raw in content.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if "=" in line:
+            key, _, value = line.partition("=")
+            key = key.strip().lower()
+            value = value.strip()
+            if key == "direction" and value in ("down", "right"):
+                direction = value  # type: ignore[assignment]
+            elif key == "color":
+                color = _parse_int(value, 2)
+            elif key == "fill":
+                fill = _parse_int(value, -1)
+            elif key == "gap":
+                gap = _parse_int(value, 10)
+            else:
+                nodes.append(line)
+            continue
+        nodes.append(line)
+    return FlowBlock(nodes=nodes, direction=direction, color=color,
+                     fill=fill, gap=gap, step=step)
+
+
 # --------------------------------------------------------------------------- #
 # Inline token -> List[TextRun]
 # --------------------------------------------------------------------------- #
@@ -594,13 +641,15 @@ def parse_markdown(source: str) -> List[Slide]:
     slides: List[Slide] = []
     current = Slide(blocks=[])
     current_step = 1  # Track current step number for progressive display
+    pending_table_meta = ""  # col_widths= / align= text awaiting a table
 
     def flush_slide() -> None:
-        nonlocal current, current_step
+        nonlocal current, current_step, pending_table_meta
         if current.blocks:
             slides.append(current)
         current = Slide(blocks=[])
         current_step = 1
+        pending_table_meta = ""
 
     source_lines = source.splitlines()
 
@@ -657,10 +706,11 @@ def parse_markdown(source: str) -> List[Slide]:
                     current_step += 1
                     i += 3
                     continue
-                # Check if this paragraph contains col_widths= pattern (table metadata)
-                if re.search(r'col_widths\s*=\s*(\d+(?:,\s*\d+)*)', inline.content):
-                    # This is a table metadata paragraph - skip it
-                    # The table parser will handle extracting the widths
+                # Check if this paragraph contains table metadata
+                # (col_widths= / align=).  Stash it for the table parser;
+                # never render it as a paragraph.
+                if re.search(r'(col_widths|align)\s*=', inline.content):
+                    pending_table_meta += " " + inline.content
                     i += 3
                     continue
             
@@ -792,6 +842,8 @@ def parse_markdown(source: str) -> List[Slide]:
                 current.blocks.append(_parse_canvas_block(tok.content, step=current_step))
             elif lang in ("pyxel-graph", "graph"):
                 current.blocks.append(_parse_graph_block(tok.content, step=current_step))
+            elif lang in ("pyxel-flow", "flow"):
+                current.blocks.append(_parse_flow_block(tok.content, step=current_step))
             else:
                 current.blocks.append(
                     CodeBlock(code=tok.content.rstrip("\n"), language=lang,
@@ -804,7 +856,6 @@ def parse_markdown(source: str) -> List[Slide]:
             # Parse GFM table tokens into TableBlock.
             headers: list[str] = []
             rows: list[list[str]] = []
-            col_widths: list[int] = []
             in_head = False
             cur_row: list[str] = []
             j = i + 1
@@ -828,23 +879,29 @@ def parse_markdown(source: str) -> List[Slide]:
                     cur_row.append(t.content.strip())
                 j += 1
             
-            # Check for column widths in the last paragraph block (before this table)
-            if current.blocks and isinstance(current.blocks[-1], Paragraph):
-                import re
-                last_para_text = "".join(r.text for r in current.blocks[-1].runs)
-                match = re.search(r'col_widths\s*=\s*(\d+(?:,\s*\d+)*)', last_para_text)
-                if match:
-                    try:
-                        col_widths = [int(w.strip()) for w in match.group(1).split(',')]
-                        # Remove the paragraph block since it's just metadata
-                        current.blocks.pop()
-                    except ValueError:
-                        col_widths = []
+            # Table metadata was stashed by the paragraph handler.
+            import re
+            col_widths: list[int] = []
+            table_align: Literal["left", "center", "right"] = "left"
+            match = re.search(r'col_widths\s*=\s*(\d+(?:,\s*\d+)*)', pending_table_meta)
+            if match:
+                try:
+                    col_widths = [int(w.strip()) for w in match.group(1).split(',')]
+                except ValueError:
+                    col_widths = []
+            amatch = re.search(r'align\s*=\s*(left|center|right)', pending_table_meta, re.IGNORECASE)
+            if amatch:
+                table_align = amatch.group(1).lower()  # type: ignore[assignment]
+            pending_table_meta = ""
             
             if headers:
-                # Only include col_widths if at least one width was specified and matches column count
-                final_col_widths = col_widths if col_widths and len(col_widths) == len(headers) else None
-                current.blocks.append(TableBlock(headers=headers, rows=rows, col_widths=final_col_widths, step=current_step))
+                # Pad short width lists with auto (0) columns and trim long
+                # ones so explicit widths always apply per column.
+                if col_widths:
+                    final_col_widths = (col_widths + [0] * len(headers))[:len(headers)]
+                else:
+                    final_col_widths = None
+                current.blocks.append(TableBlock(headers=headers, rows=rows, col_widths=final_col_widths, align=table_align, step=current_step))
             i = j + 1
             continue
 

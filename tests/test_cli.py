@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from pyxel_slides.cli import _THEMES, _parse_resolution, main
-from pyxel_slides.theme import ARCADE_SPACE, GAMEBOY, VSCODE_LIGHT
+from pyxel_slides.theme import ARCADE_SPACE, ASEP_STRUCTURAL, GAMEBOY, VSCODE_LIGHT
 
 
 # --------------------------------------------------------------------------- #
@@ -33,6 +33,10 @@ def test_themes_registry_contains_arcade_space():
     assert "arcade_space" in _THEMES
 
 
+def test_themes_registry_contains_asep_structural():
+    assert "asep_structural" in _THEMES
+
+
 def test_themes_registry_vscode_light_value():
     assert _THEMES["vscode_light"] is VSCODE_LIGHT
 
@@ -43,6 +47,29 @@ def test_themes_registry_gameboy_value():
 
 def test_themes_registry_arcade_space_value():
     assert _THEMES["arcade_space"] is ARCADE_SPACE
+
+
+def test_themes_registry_asep_structural_value():
+    assert _THEMES["asep_structural"] is ASEP_STRUCTURAL
+
+
+def test_asep_structural_palette_has_16_entries():
+    assert len(ASEP_STRUCTURAL.palette) == 16
+
+
+def test_asep_structural_anchor_colours():
+    """Deep navy and mustard gold anchors from the ASEP deck description."""
+    from pyxel_slides.theme import COL_ACCENT, COL_HILIGHT
+    assert ASEP_STRUCTURAL.palette[COL_ACCENT] == 0x3C3E95   # deep navy
+    assert ASEP_STRUCTURAL.palette[COL_HILIGHT] == 0xEEBD54  # mustard gold
+
+
+def test_asep_structural_roles_on_white_background():
+    """White bg, near-black navy fg, navy accent and heading."""
+    from pyxel_slides.theme import COL_BG, COL_FG, COL_HEADING
+    assert ASEP_STRUCTURAL.palette[COL_BG] == 0xFFFFFF
+    assert ASEP_STRUCTURAL.palette[COL_FG] == 0x20224B
+    assert ASEP_STRUCTURAL.palette[COL_HEADING] == 0x3C3E95
 
 
 # --------------------------------------------------------------------------- #
@@ -124,6 +151,22 @@ def test_main_theme_arcade_space(tmp_path):
         main([str(md), "--theme", "arcade_space"])
 
     assert captured["theme"] is ARCADE_SPACE
+
+
+def test_main_theme_asep_structural(tmp_path):
+    md = _make_md(tmp_path)
+    captured = {}
+
+    def fake_app(*, theme, **kwargs):
+        captured["theme"] = theme
+        obj = MagicMock()
+        obj.run = MagicMock()
+        return obj
+
+    with patch("pyxel_slides.cli.SlidesApp", side_effect=lambda **kw: fake_app(**kw)):
+        main([str(md), "--theme", "asep_structural"])
+
+    assert captured["theme"] is ASEP_STRUCTURAL
 
 
 def test_main_theme_vscode_light_explicit(tmp_path):

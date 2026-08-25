@@ -2,7 +2,8 @@
 
 Phase 8 additions:
   * ``--theme`` flag — choose between the built-in themes (vscode_light,
-    gameboy, gradient, arcade_space).  Defaults to ``vscode_light``.
+    gameboy, gradient, arcade_space, asep_structural).  Defaults to
+    ``vscode_light``.
   * Hot-reload is active by default; pass ``--no-hot-reload`` to disable.
 """
 
@@ -12,7 +13,7 @@ import argparse
 from pathlib import Path
 
 from .app import SlidesApp
-from .theme import ARCADE_SPACE, GAMEBOY, GRADIENT, VSCODE_LIGHT, Theme
+from .theme import ARCADE_SPACE, ASEP_STRUCTURAL, GAMEBOY, GRADIENT, VSCODE_LIGHT, Theme
 
 # Registry of built-in themes addressable by name from the CLI.
 _THEMES: dict[str, Theme] = {
@@ -20,6 +21,7 @@ _THEMES: dict[str, Theme] = {
     "gameboy": GAMEBOY,
     "gradient": GRADIENT,
     "arcade_space": ARCADE_SPACE,
+    "asep_structural": ASEP_STRUCTURAL,
 }
 
 

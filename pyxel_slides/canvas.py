@@ -29,7 +29,7 @@ def _as_point(x: float, y: float) -> Point:
 
 @dataclass
 class CanvasCommand:
-    kind: Literal["point", "line", "polyline", "curve", "area", "rect", "circle", "text"]
+    kind: Literal["point", "line", "polyline", "curve", "area", "rect", "circle", "arrow", "text"]
     points: list[Point] = field(default_factory=list)
     color: int = 1
     fill: int | None = None
@@ -176,6 +176,31 @@ class Canvas:
         ))
         return self
 
+    def arrow(
+        self,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        color: int = 1,
+        head: int = 6,
+        thickness: int | None = None,
+    ) -> "Canvas":
+        """Draw a line from (x1, y1) to (x2, y2) with an arrowhead at the end.
+
+        ``head`` is the arrowhead length in pixels; it shrinks near the
+        canvas edge so the arrowhead never pokes outside the drawing.
+        """
+
+        self.commands.append(CanvasCommand(
+            kind="arrow",
+            points=[_as_point(x1, y1), _as_point(x2, y2)],
+            color=_clamp_color(color),
+            radius=max(2, int(head)),
+            thickness=max(1, int(thickness)) if thickness is not None else self.default_thickness,
+        ))
+        return self
+
     def rect(
         self,
         x: float,
@@ -270,6 +295,8 @@ class Canvas:
                 _draw_point(pixels, cmd.points[0], cmd.color, cmd.size, thickness)
             elif cmd.kind == "line" and len(cmd.points) >= 2:
                 _draw_line(pixels, cmd.points[0], cmd.points[1], cmd.color, thickness)
+            elif cmd.kind == "arrow" and len(cmd.points) >= 2:
+                _draw_arrow(pixels, cmd.points[0], cmd.points[1], cmd.color, cmd.radius, thickness)
             elif cmd.kind == "polyline":
                 _draw_polyline(pixels, cmd.points, cmd.color, thickness)
             elif cmd.kind == "curve":
@@ -369,6 +396,44 @@ def _draw_polyline(
 ) -> None:
     for p0, p1 in zip(points, points[1:]):
         _draw_line(pixels, p0, p1, color, thickness)
+
+
+def _draw_arrow(
+    pixels: list[list[int]],
+    p0: Point,
+    p1: Point,
+    color: int,
+    head: int = 6,
+    thickness: int = 1,
+) -> None:
+    """Draw a line with a filled triangular arrowhead at the end."""
+    import math as _math
+
+    x0, y0 = p0
+    x1, y1 = p1
+    _draw_line(pixels, p0, p1, color, thickness)
+
+    h = max(2, int(head))
+    height = len(pixels)
+    width = len(pixels[0]) if height else 0
+    # Shrink near edges so the head stays inside the canvas.
+    h = min(h, x1, width - 1 - x1, y1, height - 1 - y1)
+    if h < 2:
+        return
+
+    ang = _math.atan2(y1 - y0, x1 - x0)
+    # Two wing lines, swept back from the tip.
+    for k in (-1.0, 1.0):
+        wing = ang + k * 2.6
+        wx = int(round(x1 - h * _math.cos(wing)))
+        wy = int(round(y1 - h * _math.sin(wing)))
+        _draw_line(pixels, (x1, y1), (wx, wy), color, thickness)
+    # Fill the head with a small triangle fan.
+    wing_l = ang + 2.6
+    wing_r = ang - 2.6
+    base_l = (int(round(x1 - h * _math.cos(wing_l))), int(round(y1 - h * _math.sin(wing_l))))
+    base_r = (int(round(x1 - h * _math.cos(wing_r))), int(round(y1 - h * _math.sin(wing_r))))
+    _fill_polygon(pixels, [(x1, y1), base_l, base_r], color)
 
 
 def _bezier_point(points: Sequence[Point], t: float) -> FloatPoint:

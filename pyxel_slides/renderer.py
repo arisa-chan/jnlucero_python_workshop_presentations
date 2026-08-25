@@ -22,7 +22,7 @@ import pyxel
 from .assets.fonts import FontSet
 from .dither import dither_to_palette, fit_dimensions, pillow_available
 from .highlight import role_to_color, tokenize_lines
-from .ir import BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
+from .ir import BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, FlowBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
 from .mathtext import matplotlib_available, render_math
 from .theme import Theme
 
@@ -250,6 +250,46 @@ class TitlePageParts(NamedTuple):
     detail_lines: List[List[TextRun]]
 
 
+def _draw_arrowhead(tip: int, prev: Tuple[int, int], cur: Tuple[int, int], col: int) -> None:
+    """Draw a filled triangular arrowhead on the segment ``prev`` -> ``cur``.
+
+    ``tip`` is the x (horizontal travel) or y (vertical travel)
+    coordinate where the line enters the next box.
+    """
+    import math as _math
+
+    p0, p1 = prev, cur
+    if p1[0] == p0[0]:
+        tip_pt = (p1[0], tip)
+    else:
+        tip_pt = (tip, p1[1])
+    ang = _math.atan2(tip_pt[1] - p0[1], tip_pt[0] - p0[0])
+    h = 5
+    w1 = ang + 2.6
+    w2 = ang - 2.6
+    b1 = (int(round(tip_pt[0] - h * _math.cos(w1))), int(round(tip_pt[1] - h * _math.sin(w1))))
+    b2 = (int(round(tip_pt[0] - h * _math.cos(w2))), int(round(tip_pt[1] - h * _math.sin(w2))))
+    pyxel.tri(tip_pt[0], tip_pt[1], b1[0], b1[1], b2[0], b2[1], col)
+
+
+def _draw_theme_motif(theme: Theme, width: int, height: int) -> None:
+    """Draw a theme's decorative motif (e.g. masonry blocks) behind the slide.
+
+    Motifs anchor to the bottom edge so title and section-header text
+    stays centered and readable.  Blocks are (x_frac, bottom_frac,
+    w_frac, h_frac, colour_index); all fractions are relative to the
+    slide width/height.
+    """
+    if theme.motif == "none" or not theme.motif_blocks:
+        return
+    for x_frac, bottom_frac, w_frac, h_frac, col in theme.motif_blocks:
+        bw = max(1, int(w_frac * width))
+        bh = max(1, int(h_frac * height))
+        bx = int(x_frac * width)
+        by = int((1.0 - bottom_frac) * height) - bh
+        pyxel.rect(bx, by, bw, bh, col)
+
+
 def _copy_run_text(run: TextRun, text: str) -> TextRun:
     return TextRun(
         text=text,
@@ -263,6 +303,98 @@ def _copy_run_text(run: TextRun, text: str) -> TextRun:
     )
 
 
+# --------------------------------------------------------------------------- #
+# Table layout helpers (pure logic, unit-testable without Pyxel)
+# --------------------------------------------------------------------------- #
+
+def _wrap_cell_lines(text: str, inner_w: int, glyph_w: int) -> List[str]:
+    """Word-wrap a cell's plain text to `inner_w` pixels, returning lines.
+
+    Words longer than the available width are hard-split so nothing ever
+    overflows a column.  Newlines in the source are respected.
+    """
+    max_chars = max(1, inner_w // glyph_w)
+    lines: List[str] = []
+    for para in text.split("\n"):
+        cur = ""
+        for word in para.split(" "):
+            if word == "":
+                continue
+            while len(word) > max_chars:
+                if cur:
+                    lines.append(cur.rstrip())
+                    cur = ""
+                lines.append(word[:max_chars])
+                word = word[max_chars:]
+            cand = (cur + " " + word).strip() if cur else word
+            if len(cand) > max_chars:
+                lines.append(cur.rstrip())
+                cur = word
+            else:
+                cur = cand
+        lines.append(cur.rstrip())
+    return lines
+
+
+def _table_col_widths(
+    headers: List[str],
+    rows: List[List[str]],
+    col_widths: Optional[List[int]],
+    max_w: int,
+    glyph_w: int,
+    min_col_w: int,
+) -> List[int]:
+    """Compute final column widths for a table.
+
+    Explicit widths (``col_widths``): those exact pixels, scaled
+    proportionally when their sum exceeds ``max_w``.  A width of 0 marks
+    an auto column that shares whatever space remains.  Cells that don't
+    fit their column simply wrap onto extra lines.
+
+    Without explicit widths, columns are sized to fit their content (the
+    longest word across the header and rows) and may vary per column.
+    When that doesn't fit, the widest columns are capped so the total
+    never exceeds ``max_w`` while every column keeps ``min_col_w``.
+    """
+    ncols = len(headers)
+
+    if col_widths:
+        specified = [max(min_col_w, w) for w in col_widths]
+        total = sum(specified)
+        if total > max_w:
+            specified = [max(min_col_w, int(w * max_w / total)) for w in specified]
+        auto_cols = sum(1 for w in col_widths if w == 0)
+        if auto_cols:
+            used = sum(s for s, w in zip(specified, col_widths) if w != 0)
+            auto_w = max(min_col_w, (max_w - used) // auto_cols)
+            result = [auto_w if w == 0 else s for s, w in zip(specified, col_widths)]
+            total = sum(result)
+            if total > max_w:
+                result = [max(min_col_w, int(w * max_w / total)) for w in result]
+            return result
+        return specified
+
+    # No explicit widths: fit each column to its longest word (across the
+    # header and all rows) so cells wrap to as few lines as possible.
+    fits: List[int] = []
+    for ci in range(ncols):
+        cells = [headers[ci]] + [row[ci] if ci < len(row) else "" for row in rows]
+        longest_word = max([len(w) for cell in cells for w in (cell.split() or [""])])
+        fits.append(max(min_col_w, longest_word * glyph_w + 2 * 4))
+    total = sum(fits)
+    if total <= max_w:
+        return fits
+
+    # Overflow: cap the widest column to what remains after a minimum for
+    # the others, so every column keeps at least one short word per line.
+    result = []
+    remaining = max_w
+    for ci in range(ncols):
+        others_min = (ncols - 1 - ci) * min_col_w
+        cap = max(min_col_w, remaining - others_min)
+        result.append(max(min_col_w, min(fits[ci], cap)))
+        remaining -= result[-1]
+    return result
 def _split_run_lines(runs: List[TextRun]) -> List[List[TextRun]]:
     """Split styled runs on hard breaks/newline chars, dropping empty lines."""
     lines: List[List[TextRun]] = [[]]
@@ -524,8 +656,10 @@ class SlideRenderer:
         self.links = []  # reset hit-areas for this frame
         pyxel.cls(self.theme.bg)
         if first_slide and slide.is_section_title:
+            _draw_theme_motif(self.theme, self.width, self.height)
             self._draw_title_page(slide)
         elif slide.is_section_title:
+            _draw_theme_motif(self.theme, self.width, self.height)
             self._draw_section_title(slide)
         else:
             self._draw_content(slide, reveal_budget)
@@ -755,6 +889,8 @@ class SlideRenderer:
                 y = self._draw_tableblock(block, x, y, max_w)
             elif isinstance(block, BoxBlock):
                 y = self._draw_boxblock(block, x, y, max_w)
+            elif isinstance(block, FlowBlock):
+                y = self._draw_flowblock(block, x, y, max_w)
         return y, budget
 
     def _draw_content(self, slide: Slide, reveal_budget: int = -1) -> None:
@@ -1053,7 +1189,13 @@ class SlideRenderer:
         return y + img_h + 4
 
     def _draw_tableblock(self, tb: TableBlock, x: int, y: int, max_w: int) -> int:
-        """Draw a GFM pipe table with a header row and data rows."""
+        """Draw a GFM pipe table with header row, wrapped cells, and alignment.
+
+        Columns default to content-fit widths (not equal shares); explicit
+        ``col_widths`` (pixels, 0 = auto) are honoured.  Cell text wraps
+        inside its column instead of being truncated.  ``tb.align``
+        positions the whole table left / center / right within max_w.
+        """
         ncols = len(tb.headers)
         if ncols == 0:
             return y
@@ -1061,67 +1203,63 @@ class SlideRenderer:
         f = self.fonts
         font, fw, fh = f.body, f.body_w, f.body_h
         pad = 4
-        row_h = fh + pad * 2
+        line_h = fh
+        row_pad = pad
+        min_col_w = fw * 2 + 2 * pad
 
-        # Calculate column widths
-        if tb.col_widths:
-            # Use specified widths, but ensure they don't exceed max_w
-            total_specified = sum(w for w in tb.col_widths if w > 0)
-            auto_cols = sum(1 for w in tb.col_widths if w == 0)
-            
-            col_widths = []
-            remaining_w = max_w
-            for i, w in enumerate(tb.col_widths):
-                if w > 0:
-                    # Scale specified width proportionally if total exceeds max_w
-                    if total_specified > max_w:
-                        scaled_w = int(w * max_w / total_specified)
-                        col_widths.append(max(fw * 4, scaled_w))
-                    else:
-                        col_widths.append(w)
-                    remaining_w -= col_widths[-1]
-                else:
-                    # Auto-width: distribute remaining space
-                    if auto_cols > 0:
-                        auto_w = max(fw * 4, remaining_w // auto_cols)
-                        col_widths.append(auto_w)
-                    else:
-                        col_widths.append(max(fw * 4, max_w // ncols))
-        else:
-            # Default: equal width columns
-            col_w = max(fw * 4, max_w // ncols)
-            col_widths = [col_w] * ncols
-
+        col_widths = _table_col_widths(
+            tb.headers, tb.rows, tb.col_widths, max_w, fw, min_col_w
+        )
         total_w = sum(col_widths)
 
-        # Header row (accent background).
-        pyxel.rect(x, y, total_w, row_h, self.theme.accent)
-        col_x = x
-        for ci, hdr in enumerate(tb.headers):
-            col_w = col_widths[ci]
-            max_chars = max(1, (col_w - 2 * pad) // fw)
-            _draw_text(col_x + pad, y + pad, hdr[:max_chars], self.theme.bg, font)
-            col_x += col_w
-        y += row_h
+        # Horizontal alignment of the whole table.
+        if tb.align == "center":
+            tx = x + (max_w - total_w) // 2
+        elif tb.align == "right":
+            tx = x + max_w - total_w
+        else:
+            tx = x
+        tx = max(x, min(tx, x + max(0, max_w - total_w)))
+
+        # Pre-wrap every cell to its column's inner width.
+        inner_ws = [w - 2 * pad for w in col_widths]
+        header_lines = [_wrap_cell_lines(h, inner_ws[ci], fw) or [""]
+                        for ci, h in enumerate(tb.headers)]
+        cell_lines = [[_wrap_cell_lines(cell, inner_ws[ci], fw) or [""]
+                       for ci, cell in enumerate(row[:ncols])] for row in tb.rows]
+        # Pad short rows to ncols columns for layout consistency.
+        cell_lines = [lines + [[""] for _ in range(ncols - len(lines))] for lines in cell_lines]
+
+        # Header row.
+        header_h = max(len(lines) for lines in header_lines) * line_h + 2 * row_pad
+        pyxel.rect(tx, y, total_w, header_h, self.theme.accent)
+        col_x = tx
+        for ci, lines in enumerate(header_lines):
+            for li, line in enumerate(lines):
+                _draw_text(col_x + pad, y + row_pad + li * line_h, line,
+                           self.theme.bg, font)
+            col_x += col_widths[ci]
+        y += header_h
 
         # Separator line.
-        pyxel.rect(x, y, total_w, 1, self.theme.accent)
+        pyxel.rect(tx, y, total_w, 1, self.theme.accent)
         y += 1
 
-        # Data rows (alternating background).
-        for ri, row in enumerate(tb.rows):
+        # Data rows (alternating background), each as tall as its tallest cell.
+        for ri, lines_per_cell in enumerate(cell_lines):
             bg = self.theme.eff_panel_bg if ri % 2 == 0 else self.theme.bg
-            pyxel.rect(x, y, total_w, row_h, bg)
-            col_x = x
-            for ci, cell in enumerate(row[:ncols]):
-                col_w = col_widths[ci]
-                max_chars = max(1, (col_w - 2 * pad) // fw)
-                _draw_text(col_x + pad, y + pad, cell[:max_chars], self.theme.fg, font)
-                col_x += col_w
+            row_h = max(len(lines) for lines in lines_per_cell) * line_h + 2 * row_pad
+            pyxel.rect(tx, y, total_w, row_h, bg)
+            col_x = tx
+            for ci, lines in enumerate(lines_per_cell):
+                for li, line in enumerate(lines):
+                    _draw_text(col_x + pad, y + row_pad + li * line_h, line,
+                               self.theme.fg, font)
+                col_x += col_widths[ci]
             y += row_h
 
         # Bottom border.
-        pyxel.rect(x, y, total_w, 1, self.theme.accent)
+        pyxel.rect(tx, y, total_w, 1, self.theme.accent)
         y += 1
 
         return y + 4
@@ -1166,6 +1304,94 @@ class SlideRenderer:
             ty += line_h
 
         return y + box_h + 4
+
+    def _draw_flowblock(self, fb: FlowBlock, x: int, y: int, max_w: int) -> int:
+        """Draw an auto-laid-out flowchart: boxes chained with arrows.
+
+        Vertical (``down``) and horizontal (``right``) chains are
+        supported.  Boxes share one width fit to the longest label;
+        arrows run between box centers.  The whole chart is centered
+        horizontally within ``max_w``.
+        """
+        f = self.fonts
+        font, fw, fh = f.body, f.body_w, f.body_h
+        pad_x, pad_y = 6, 4
+        gap = max(4, int(fb.gap))
+        box_color = fb.color
+        if fb.fill >= 0:
+            box_fill = fb.fill
+            text_col = self.theme.fg
+        else:
+            # Default: code-panel styling (light text on dark panel).
+            box_fill = self.theme.eff_panel_bg
+            text_col = self.theme.eff_code_fg
+
+        # Longest pixel width across all labels (with | line breaks).
+        def _label_lines(label: str) -> List[str]:
+            return label.split("|")
+
+        max_text_w = 0
+        for node in fb.nodes:
+            for line in _label_lines(node):
+                w = _text_width(line, font, fw)
+                max_text_w = max(max_text_w, w)
+        box_w = max_text_w + 2 * pad_x
+        # Never let a horizontal chain exceed the content width.
+        n_nodes = len(fb.nodes)
+        if fb.direction == "right" and n_nodes > 1:
+            cap = (max_w - gap * (n_nodes - 1)) // n_nodes
+            box_w = max(min(box_w, cap), pad_x * 2 + fw)
+        line_h = fh + self.theme.line_spacing
+        box_hs = []
+        box_lines = []
+        total_h = 0
+        total_w = 0
+        inner_w = box_w - 2 * pad_x
+        for node in fb.nodes:
+            wrapped: List[str] = []
+            for line in _label_lines(node):
+                wrapped.extend(wrap_text(line, inner_w, scale=1) or [""])
+            box_lines.append(wrapped)
+            bh = len(wrapped) * line_h - self.theme.line_spacing + 2 * pad_y
+            box_hs.append(bh)
+            total_h += bh
+            total_w = max(total_w, box_w)
+        total_h += gap * (len(fb.nodes) - 1)
+        total_w += gap * (len(fb.nodes) - 1) if fb.direction == "right" else 0
+        if fb.direction == "right":
+            total_w = box_w * len(fb.nodes) + gap * (len(fb.nodes) - 1)
+            total_h = max(box_hs)
+
+        # Center within the content area.
+        cx = x + max(0, (max_w - total_w) // 2)
+
+        cur_x, cur_y = cx, y
+        prev_center = None
+        for idx, node in enumerate(fb.nodes):
+            bw = box_w
+            bh = box_hs[idx]
+            pyxel.rect(cur_x, cur_y, bw, bh, box_fill)
+            pyxel.rectb(cur_x, cur_y, bw, bh, box_color)
+            ty = cur_y + pad_y
+            for line in box_lines[idx]:
+                lw = _text_width(line, font, fw)
+                tx = cur_x + max(0, (bw - lw) // 2)
+                _draw_text(tx, ty, line, text_col, font)
+                ty += line_h
+            center = (cur_x + bw // 2, cur_y + bh // 2)
+            if prev_center is not None and fb.direction == "down":
+                pyxel.line(prev_center[0], prev_center[1], center[0], cur_y, box_color)
+                _draw_arrowhead(cur_y, prev_center, center, box_color)
+            elif prev_center is not None:
+                pyxel.line(prev_center[0], prev_center[1], cur_x, center[1], box_color)
+                _draw_arrowhead(cur_x, prev_center, center, box_color)
+            prev_center = center
+            if fb.direction == "down":
+                cur_y += bh + gap
+            else:
+                cur_x += bw + gap
+
+        return y + total_h + 4
 
     def _draw_mathblock(self, mb: MathBlock, x: int, y: int, max_w: int) -> int:
         """Draw a display-math block, centered horizontally.
