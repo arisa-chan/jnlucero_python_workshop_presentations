@@ -58,17 +58,17 @@ def test_asep_structural_palette_has_16_entries():
 
 
 def test_asep_structural_anchor_colours():
-    """Deep navy and mustard gold anchors from the ASEP deck description."""
+    """Deep navy and gold anchors from the ASEP template brand guide."""
     from pyxel_slides.theme import COL_ACCENT, COL_HILIGHT
     assert ASEP_STRUCTURAL.palette[COL_ACCENT] == 0x3C3E95   # deep navy
-    assert ASEP_STRUCTURAL.palette[COL_HILIGHT] == 0xEEBD54  # mustard gold
+    assert ASEP_STRUCTURAL.palette[COL_HILIGHT] == 0xEEBD54  # template gold
 
 
-def test_asep_structural_roles_on_white_background():
-    """White bg, near-black navy fg, navy accent and heading."""
+def test_asep_structural_roles_on_template_background():
+    """Pale lavender bg, navy fg, navy accent and heading."""
     from pyxel_slides.theme import COL_BG, COL_FG, COL_HEADING
-    assert ASEP_STRUCTURAL.palette[COL_BG] == 0xFFFFFF
-    assert ASEP_STRUCTURAL.palette[COL_FG] == 0x20224B
+    assert ASEP_STRUCTURAL.palette[COL_BG] == 0xDFE0EA
+    assert ASEP_STRUCTURAL.palette[COL_FG] == 0x3C3E95
     assert ASEP_STRUCTURAL.palette[COL_HEADING] == 0x3C3E95
 
 

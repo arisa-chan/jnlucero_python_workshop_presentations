@@ -24,7 +24,14 @@ from .dither import dither_to_palette, fit_dimensions, pillow_available
 from .highlight import role_to_color, tokenize_lines
 from .ir import BoxBlock, CanvasBlock, CodeBlock, ColumnBreak, FlowBlock, Heading, ImageBlock, ListBlock, MathBlock, Paragraph, Slide, SpriteBlock, TableBlock, TextRun, plain
 from .mathtext import matplotlib_available, render_math
-from .theme import Theme
+from .theme import COL_ALT, COL_COMMENT, COL_CPILL, Theme
+
+
+_ASEP_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "asep_structural"
+_ASEP_LOGO = _ASEP_ASSET_DIR / "asep_logo.png"
+_ASEP_COVER_MASONRY = _ASEP_ASSET_DIR / "cover_masonry.png"
+_ASEP_SECTION_CORNER = _ASEP_ASSET_DIR / "section_corner_masonry.png"
+_TRANSPARENT_PIXEL = -1
 
 
 # --------------------------------------------------------------------------- #
@@ -288,6 +295,69 @@ def _draw_theme_motif(theme: Theme, width: int, height: int) -> None:
         bx = int(x_frac * width)
         by = int((1.0 - bottom_frac) * height) - bh
         pyxel.rect(bx, by, bw, bh, col)
+
+
+def _nearest_palette_index(
+    rgb: Tuple[int, int, int],
+    palette: List[Tuple[int, int, int]],
+) -> int:
+    """Return the closest Pyxel palette slot for an RGB pixel."""
+    r, g, b = rgb
+    best_idx = 0
+    best_dist = float("inf")
+    for idx, (pr, pg, pb) in enumerate(palette):
+        dist = (r - pr) ** 2 + (g - pg) ** 2 + (b - pb) ** 2
+        if dist < best_dist:
+            best_dist = dist
+            best_idx = idx
+    return best_idx
+
+
+def _load_rgba_asset_pixels(
+    path: Path,
+    target_w: int,
+    target_h: int,
+    palette_rgb: List[Tuple[int, int, int]],
+    bg_index: int,
+) -> Optional[List[List[int]]]:
+    """Load a transparent PNG asset and map it to palette indices.
+
+    Unlike the normal image ditherer, this preserves transparent pixels so
+    template motifs can sit cleanly on either the pale or navy ASEP backgrounds.
+    Semi-transparent antialiasing is composited against the current background.
+    """
+    if not pillow_available() or target_w <= 0 or target_h <= 0:
+        return None
+
+    try:
+        from PIL import Image as PilImage  # noqa: PLC0415
+
+        img = PilImage.open(path).convert("RGBA")
+        try:
+            resample = PilImage.Resampling.LANCZOS
+        except AttributeError:  # pragma: no cover - old Pillow
+            resample = PilImage.LANCZOS
+        img = img.resize((target_w, target_h), resample)
+    except Exception:  # noqa: BLE001
+        return None
+
+    bg_r, bg_g, bg_b = palette_rgb[bg_index]
+    rows: List[List[int]] = []
+    for y in range(target_h):
+        row: List[int] = []
+        for x in range(target_w):
+            r, g, b, a = img.getpixel((x, y))
+            if a <= 8:
+                row.append(_TRANSPARENT_PIXEL)
+                continue
+            if a < 255:
+                alpha = a / 255.0
+                r = int(round(r * alpha + bg_r * (1.0 - alpha)))
+                g = int(round(g * alpha + bg_g * (1.0 - alpha)))
+                b = int(round(b * alpha + bg_b * (1.0 - alpha)))
+            row.append(_nearest_palette_index((r, g, b), palette_rgb))
+        rows.append(row)
+    return rows
 
 
 def _copy_run_text(run: TextRun, text: str) -> TextRun:
@@ -654,6 +724,15 @@ class SlideRenderer:
     ) -> None:
         """Draw the slide. reveal_budget = -1 means show everything."""
         self.links = []  # reset hit-areas for this frame
+        if self.theme.name == "asep_structural":
+            if first_slide and slide.is_section_title:
+                self._draw_asep_title_page(slide)
+            elif slide.is_section_title:
+                self._draw_asep_section_title(slide)
+            else:
+                self._draw_asep_content(slide, reveal_budget)
+            return
+
         pyxel.cls(self.theme.bg)
         if first_slide and slide.is_section_title:
             _draw_theme_motif(self.theme, self.width, self.height)
@@ -703,6 +782,336 @@ class SlideRenderer:
             _draw_text(x, y, line_text, col, font)
             y += glyph_h + self.theme.line_spacing
         return y + gap_after
+
+    # --- ASEP presentation-template layout -------------------------------- #
+
+    def _asep_sx(self, value: float) -> int:
+        return int(round(value * self.width / 384.0))
+
+    def _asep_sy(self, value: float) -> int:
+        return int(round(value * self.height / 216.0))
+
+    def _asep_rect(
+        self,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+    ) -> Tuple[int, int, int, int]:
+        return (
+            self._asep_sx(x),
+            self._asep_sy(y),
+            max(1, self._asep_sx(w)),
+            max(1, self._asep_sy(h)),
+        )
+
+    def _draw_asep_asset(
+        self,
+        path: Path,
+        x: float,
+        y: float,
+        w: float,
+        h: float,
+        bg_index: int,
+    ) -> None:
+        ax, ay, aw, ah = self._asep_rect(x, y, w, h)
+        cache_key = f"asep-asset:{path}:{aw}:{ah}:{bg_index}"
+        if cache_key not in self._image_cache:
+            self._image_cache[cache_key] = _load_rgba_asset_pixels(
+                path,
+                aw,
+                ah,
+                self.theme.palette_as_rgb,
+                bg_index,
+            )
+
+        pixels = self._image_cache[cache_key]
+        if pixels is None:
+            return
+
+        for row_idx, row in enumerate(pixels):
+            iy = ay + row_idx
+            if iy < 0 or iy >= self.height:
+                continue
+            for col_idx, col in enumerate(row):
+                if col == _TRANSPARENT_PIXEL:
+                    continue
+                ix = ax + col_idx
+                if 0 <= ix < self.width:
+                    pyxel.pset(ix, iy, col)
+
+    def _draw_asep_text_block(
+        self,
+        runs: List[TextRun],
+        x: int,
+        y: int,
+        max_w: int,
+        font: Optional[Any],
+        glyph_w: int,
+        glyph_h: int,
+        col: int,
+        *,
+        align: str = "left",
+        scale: int = 1,
+        gap_after: int = 4,
+    ) -> int:
+        if not runs:
+            return y
+
+        if font is None:
+            scale = max(1, scale)
+            line_h = BUILTIN_GLYPH_H * scale
+            wrap_w = BUILTIN_GLYPH_W * scale
+            lines = wrap_runs(runs, max_w, None, wrap_w)
+            for line_runs in lines:
+                line_text = "".join(run.text for run in line_runs)
+                line_w = len(line_text) * BUILTIN_GLYPH_W * scale
+                if align == "right":
+                    tx = x + max(0, max_w - line_w)
+                elif align == "center":
+                    tx = x + max(0, (max_w - line_w) // 2)
+                else:
+                    tx = x
+                _draw_text_scaled_builtin(tx, y, line_text, col, scale)
+                y += line_h + self.theme.line_spacing
+            return y + gap_after
+
+        lines = wrap_runs(runs, max_w, font, glyph_w)
+        for line_runs in lines:
+            line_text = "".join(run.text for run in line_runs)
+            line_w = _text_width(line_text, font, glyph_w)
+            if align == "right":
+                tx = x + max(0, max_w - line_w)
+            elif align == "center":
+                tx = x + max(0, (max_w - line_w) // 2)
+            else:
+                tx = x
+            _draw_text(tx, y, line_text, col, font)
+            y += glyph_h + self.theme.line_spacing
+        return y + gap_after
+
+    def _asep_blocks_for_step(self, slide: Slide) -> List:
+        if slide.step > 0:
+            return [b for b in slide.blocks if getattr(b, "step", 1) <= slide.step]
+        return slide.blocks
+
+    def _draw_asep_title_page(self, slide: Slide) -> None:
+        parts = _title_page_parts(slide)
+        pyxel.cls(self.theme.bg)
+        self._draw_asep_asset(_ASEP_LOGO, 28.5, 17.5, 53.2, 52.4, self.theme.bg)
+        self._draw_asep_asset(_ASEP_COVER_MASONRY, 287.8, 99.4, 111.6, 111.2, self.theme.bg)
+
+        f = self.fonts
+        title_x = self._asep_sx(26.4)
+        title_w = self._asep_sx(250.0)
+        title_font = f.heading_lg
+        title_fw = f.heading_lg_w
+        title_fh = f.heading_lg_h
+        title_scale = 4 if title_font is None else 1
+        wrap_font = title_font
+        wrap_w = title_fw if title_font is not None else BUILTIN_GLYPH_W * title_scale
+        line_h = title_fh if title_font is not None else BUILTIN_GLYPH_H * title_scale
+        title_lines = wrap_runs(plain(parts.title), title_w, wrap_font, wrap_w)
+        title_h = len(title_lines) * line_h + max(0, len(title_lines) - 1) * self.theme.line_spacing
+        title_y = max(self._asep_sy(82.0), self._asep_sy(155.0) - title_h - self._asep_sy(5.0))
+
+        y = self._draw_asep_text_block(
+            plain(parts.title),
+            title_x,
+            title_y,
+            title_w,
+            title_font,
+            title_fw,
+            title_fh,
+            self.theme.eff_heading,
+            scale=title_scale,
+            gap_after=self._asep_sy(4.0),
+        )
+
+        if parts.subtitle_runs:
+            y = self._draw_asep_text_block(
+                parts.subtitle_runs,
+                self._asep_sx(29.2),
+                y,
+                self._asep_sx(218.2),
+                f.body,
+                f.body_w,
+                f.body_h,
+                COL_COMMENT,
+                gap_after=self._asep_sy(5.0),
+            )
+
+        for idx, line_runs in enumerate(parts.detail_lines):
+            if idx == 0 and f.bold is not None:
+                font, fw, fh = f.bold, f.bold_w, f.bold_h
+                col = self.theme.fg
+            else:
+                font, fw, fh = f.body, f.body_w, f.body_h
+                col = COL_COMMENT
+            y = self._draw_asep_text_block(
+                line_runs,
+                self._asep_sx(29.2),
+                y,
+                self._asep_sx(218.2),
+                font,
+                fw,
+                fh,
+                col,
+                gap_after=self._asep_sy(2.0),
+            )
+
+    def _draw_asep_section_title(self, slide: Slide) -> None:
+        title = ""
+        subtitle_runs: List[TextRun] = []
+        for block in slide.blocks:
+            if isinstance(block, Heading) and block.level == 1 and not title:
+                title = block.text
+            elif isinstance(block, Paragraph) and not subtitle_runs:
+                subtitle_runs = block.runs
+
+        pyxel.cls(self.theme.accent)
+        self._draw_asep_asset(_ASEP_SECTION_CORNER, 263.6, -4.8, 139.6, 139.6, self.theme.accent)
+
+        f = self.fonts
+        self._draw_asep_text_block(
+            plain(title),
+            self._asep_sx(30.0),
+            self._asep_sy(83.0),
+            self._asep_sx(190.0),
+            f.heading_lg,
+            f.heading_lg_w,
+            f.heading_lg_h,
+            COL_ALT,
+            scale=4,
+            gap_after=0,
+        )
+        if subtitle_runs:
+            self._draw_asep_text_block(
+                subtitle_runs,
+                self._asep_sx(30.0),
+                self._asep_sy(157.4),
+                self._asep_sx(170.0),
+                f.body,
+                f.body_w,
+                f.body_h,
+                COL_CPILL,
+                gap_after=0,
+            )
+
+    def _draw_asep_content(self, slide: Slide, reveal_budget: int = -1) -> None:
+        pyxel.cls(self.theme.bg)
+        self._draw_asep_asset(_ASEP_LOGO, 336.8, 169.9, 34.7, 34.1, self.theme.bg)
+
+        blocks_to_draw = self._asep_blocks_for_step(slide)
+        budget = reveal_budget
+        left_x = self._asep_sx(13.1)
+        right_x = self._asep_sx(202.9)
+        y = self._asep_sy(18.7)
+        full_w = self._asep_sx(357.8)
+        col_w = self._asep_sx(168.0)
+
+        col_break_idx = next(
+            (i for i, b in enumerate(blocks_to_draw) if isinstance(b, ColumnBreak)), -1
+        )
+        if col_break_idx < 0:
+            self._draw_asep_blocks(blocks_to_draw, left_x, y, full_w, budget)
+            return
+
+        pre_blocks = blocks_to_draw[:col_break_idx]
+        post_blocks = blocks_to_draw[col_break_idx + 1:]
+        n_headings = next(
+            (i for i, b in enumerate(pre_blocks) if not isinstance(b, Heading)),
+            len(pre_blocks),
+        )
+
+        for block in pre_blocks[:n_headings]:
+            y = self._draw_asep_heading(block, left_x, y, full_w)
+
+        left_blocks = pre_blocks[n_headings:]
+        _, budget = self._draw_asep_blocks(left_blocks, left_x, y, col_w, budget)
+        self._draw_asep_blocks(post_blocks, right_x, y, col_w, budget)
+
+    def _draw_asep_blocks(
+        self,
+        blocks: List,
+        x: int,
+        y: int,
+        max_w: int,
+        budget: int,
+    ) -> Tuple[int, int]:
+        pad = self.theme.padding
+        for block in blocks:
+            if y >= self.height - pad:
+                break
+            if isinstance(block, Heading):
+                y = self._draw_asep_heading(block, x, y, max_w)
+            elif isinstance(block, Paragraph):
+                y, budget = self._draw_paragraph(block, x, y, max_w, budget)
+            elif isinstance(block, ListBlock):
+                y, budget = self._draw_list(block, x, y, max_w, budget)
+            elif isinstance(block, CodeBlock):
+                y = self._draw_codeblock(block, x, y, max_w)
+            elif isinstance(block, ImageBlock):
+                y = self._draw_imageblock(block, x, y, max_w)
+            elif isinstance(block, MathBlock):
+                y = self._draw_mathblock(block, x, y, max_w)
+            elif isinstance(block, CanvasBlock):
+                y = self._draw_canvasblock(block, x, y, max_w)
+            elif isinstance(block, SpriteBlock):
+                y = self._draw_spriteblock(block, x, y, max_w)
+            elif isinstance(block, TableBlock):
+                y = self._draw_tableblock(block, x, y, max_w)
+            elif isinstance(block, BoxBlock):
+                y = self._draw_boxblock(block, x, y, max_w)
+            elif isinstance(block, FlowBlock):
+                y = self._draw_flowblock(block, x, y, max_w)
+        return y, budget
+
+    def _draw_asep_heading(self, h: Heading, x: int, y: int, max_w: int) -> int:
+        f = self.fonts
+        if h.level == 1:
+            return self._draw_asep_text_block(
+                plain(h.text),
+                x,
+                y,
+                max_w,
+                f.heading_lg,
+                f.heading_lg_w,
+                f.heading_lg_h,
+                self.theme.eff_heading,
+                align="center",
+                scale=4,
+                gap_after=self._asep_sy(12.0),
+            )
+        if h.level == 2:
+            return self._draw_asep_text_block(
+                plain(h.text),
+                x,
+                y,
+                max_w,
+                f.heading_sm,
+                f.heading_sm_w,
+                f.heading_sm_h,
+                self.theme.eff_heading,
+                align="center",
+                scale=2,
+                gap_after=self._asep_sy(11.0),
+            )
+
+        font = f.bold if f.bold is not None else f.body
+        fw = f.bold_w if f.bold is not None else f.body_w
+        fh = f.bold_h if f.bold is not None else f.body_h
+        return self._draw_asep_text_block(
+            plain(h.text),
+            x,
+            y,
+            max_w,
+            font,
+            fw,
+            fh,
+            self.theme.fg,
+            gap_after=self._asep_sy(5.0),
+        )
 
     def _draw_title_page(self, slide: Slide) -> None:
         parts = _title_page_parts(slide)
@@ -1188,6 +1597,75 @@ class SlideRenderer:
 
         return y + img_h + 4
 
+    def _draw_asep_tableblock(self, tb: TableBlock, x: int, y: int, max_w: int) -> int:
+        """Draw tables in the open, horizontal-rule style used by the template."""
+        ncols = len(tb.headers)
+        if ncols == 0:
+            return y
+
+        f = self.fonts
+        font, fw, fh = f.body, f.body_w, f.body_h
+        header_font = f.bold if f.bold is not None else f.body
+        header_fw = f.bold_w if f.bold is not None else f.body_w
+        header_fh = f.bold_h if f.bold is not None else f.body_h
+        pad_x = self._asep_sx(5.0)
+        pad_y = self._asep_sy(4.0)
+        line_h = fh + self.theme.line_spacing
+        header_line_h = header_fh + self.theme.line_spacing
+        min_col_w = max(fw * 4, self._asep_sx(44.0))
+
+        col_widths = _table_col_widths(
+            tb.headers, tb.rows, tb.col_widths, max_w, fw, min_col_w
+        )
+        total_w = sum(col_widths)
+        if tb.align == "right":
+            tx = x + max(0, max_w - total_w)
+        else:
+            tx = x + max(0, (max_w - total_w) // 2)
+
+        inner_ws = [max(fw * 2, w - 2 * pad_x) for w in col_widths]
+        header_lines = [
+            _wrap_cell_lines(h, inner_ws[ci], header_fw) or [""]
+            for ci, h in enumerate(tb.headers)
+        ]
+        cell_lines = [
+            [
+                _wrap_cell_lines(cell, inner_ws[ci], fw) or [""]
+                for ci, cell in enumerate(row[:ncols])
+            ]
+            for row in tb.rows
+        ]
+        cell_lines = [lines + [[""] for _ in range(ncols - len(lines))] for lines in cell_lines]
+
+        rule_col = COL_COMMENT
+        header_h = max(len(lines) for lines in header_lines) * header_line_h + 2 * pad_y
+        col_x = tx
+        for ci, lines in enumerate(header_lines):
+            for li, line in enumerate(lines):
+                lw = _text_width(line, header_font, header_fw)
+                cx = col_x + max(pad_x, (col_widths[ci] - lw) // 2)
+                _draw_text(cx, y + pad_y + li * header_line_h, line, self.theme.fg, header_font)
+            col_x += col_widths[ci]
+
+        y += header_h
+        pyxel.rect(tx, y, total_w, 1, rule_col)
+        y += 1
+
+        for lines_per_cell in cell_lines:
+            row_h = max(len(lines) for lines in lines_per_cell) * line_h + 2 * pad_y
+            col_x = tx
+            for ci, lines in enumerate(lines_per_cell):
+                for li, line in enumerate(lines):
+                    lw = _text_width(line, font, fw)
+                    cx = col_x + max(pad_x, (col_widths[ci] - lw) // 2)
+                    _draw_text(cx, y + pad_y + li * line_h, line, self.theme.fg, font)
+                col_x += col_widths[ci]
+            y += row_h
+            pyxel.rect(tx, y, total_w, 1, rule_col)
+            y += 1
+
+        return y + self._asep_sy(4.0)
+
     def _draw_tableblock(self, tb: TableBlock, x: int, y: int, max_w: int) -> int:
         """Draw a GFM pipe table with header row, wrapped cells, and alignment.
 
@@ -1196,6 +1674,9 @@ class SlideRenderer:
         inside its column instead of being truncated.  ``tb.align``
         positions the whole table left / center / right within max_w.
         """
+        if self.theme.name == "asep_structural":
+            return self._draw_asep_tableblock(tb, x, y, max_w)
+
         ncols = len(tb.headers)
         if ncols == 0:
             return y

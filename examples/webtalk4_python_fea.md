@@ -1,9 +1,9 @@
-# Developing Finite Element Analysis (FEA)<br/>Applications using Python
+# Developing Finite Element Analysis Applications<br/>using Python
 
-## Webtalk 4
+## ASEP Webinar Series 2026-2027 W01
 
 <br/>Engr. Jaydee N. Lucero<br/>
-Senior Structural Engineer I, Abinales Associates Engineers + Consultants
+Senior Structural Engineer I<br/>Abinales Associates Engineers + Consultants
 
 ---
 
@@ -13,87 +13,91 @@ Senior Structural Engineer I, Abinales Associates Engineers + Consultants
 - *Part-time Review Instructor* (2019-present), Review Innovations
 - *Associate Member* (2022-present), Association of Structural Engineers of the Philippines, Inc.
 - *MS Civil Engineering (Structural Engineering) student* (2024-present), University of the Philippines Diliman
-- `Pythonista since August 2024`
+- ==Pythonista since August 2024==
 
 |||
 
-![Jaydee Lucero](../picture_aboutme.png?scale=1.3)
+![Jaydee Lucero](../picture_aboutme.png?scale=1.15)
 
 ---
 
 ## Outline
 
-1. What is FEA? From apps to elements
-2. The matrix stiffness method
-3. The Python FEA toolbox
-4. Live code: a two-dimensional truss solver
-5. Existing FEA frameworks
-6. Next steps
+1. Introduction
+2. Finite element analysis concepts
+3. Python libraries from scratch
+4. ==Example 1== A two-dimensional truss analysis program
+5. Python FEA libraries
+6. ==Example 2== A two-dimensional isolated foundation design program
+7. Next steps
 
 ---
 
 ## QR Codes
 
-`Python 3.14 cheat sheet`
+Python 3.14 cheat sheet
 
-![Python 3.14 cheat sheet QR Code](../qr_codes/qrcode_cheatsheet.png?scale=1.2)
+![Python 3.14 cheat sheet QR Code](../qr_codes/qrcode_cheatsheet.png?scale=1.1)
 
 |||
 
-`PDF and source code of presentation`
+PDF and source code of presentation
 
-![Github repository](../qr_codes/qrcode_presentation.png?scale=1.2)
+![Github repository](../qr_codes/qrcode_presentation.png?scale=1.1)
 
 ---
 
 # Part 1
 
-**From apps to FEA**
+**Introduction**
 
 ---
 
-## The journey so far
+## A quick recap
 
-In the previous Webtalks, we learned *how to ship software*.
-
+<!-- incremental -->
 ```pyxel-flow
-direction=right
+direction=down
 color=2
 gap=12
-Webtalk 1|Agentic coding
-Webtalk 2|Task automation
-Webtalk 3|Publishing apps
-Webtalk 4|FEA in Python
+Webtalk 1|Coding and agentic coding using Python
+Webtalk 2|Task automation using Python
+Webtalk 3|Publishing apps using Python
 ```
 
 <!-- incremental -->
-Now that we know how to publish an app...
+We can make our structural engineering programs even more sophisticated.
 
 <!-- incremental -->
 
-==**What goes inside a complex engineering app?**==
+```pyxel-flow
+direction=down
+color=2
+gap=12
+Webtalk 4|Finite element analysis using Python
+```
 
 ---
 
 ## Why Python for FEA?
 
-`Compared to black-box GUI software`
+<!-- incremental -->
+Compared to black-box FEA software, an FEA program created using programming languages like Python can be
 
 <!-- incremental -->
-
-- **Customizable:** inspect and modify *every* line
+- `Customizable`<br/>Inspect and modify *every* line
 <!-- incremental -->
-- **Open source:** no fees, math fully visible
+- `Open-source`<br/>No fees, math fully visible
 <!-- incremental -->
-- **Parametric:** change a variable, rerun, done
+- `Parametric`<br/>Change a variable, rerun, done
 <!-- incremental -->
-- **Ecosystem:** *numpy*, *scipy*, *matplotlib*
+- `Ecosystem`<br/>*numpy*, *scipy*, *matplotlib*, *openseespy*, *pyniteFEA*, etc.
 
 |||
 
 <!-- incremental -->
 
-col_widths=120,150
+col_widths=0
 | Aspect | GUI | Python |
 | --- | --- | --- |
 | Cost | Fee | Free |
@@ -105,8 +109,10 @@ col_widths=120,150
 ---
 
 ## Demystifying the black box
-
-Every commercial FEA program reduces to one equation.
+<!-- incremental -->
+Every commercial FEA program reduces to just one equation.
+<!-- incremental -->
+> **KU** = **F** + **Q**
 
 <!-- incremental -->
 
@@ -114,31 +120,64 @@ Every commercial FEA program reduces to one equation.
 direction=down
 gap=14
 color=2
-F|what we apply
+F, Q|what we apply
 K|how the structure resists
-d|what we solve for
+U|what we solve for
 ```
 
 <!-- incremental -->
 
-==**F = K d**==
-
+In this talk, we will build FEA programs in two ways: 
 <!-- incremental -->
+- ==from scratch== using basic Python libraries, and
+<!-- incremental -->
+- ==from Python FEA libraries==
 
-==**Goal of this talk:**== build the matrix stiffness method from scratch in Python, and watch the black box open up.
+---
+
+# Part 2
+
+**Finite element analysis concepts**
+
+---
+
+## What is finite element analysis?
+<!-- incremental -->
+> Instead of providing the infinite number of solutions as in the exact solutions, the ==finite element concept== is to determine solutions only at some finite locations. This is done by first discretizing the geometry of the model into a number of finite elements... These elements are connected at grid points or nodes at which the unknowns are to be determined (Dechaumpai, 2024).
+<!-- incremental -->
+> The key idea of ==finite element method== is to transform the differential equations into a set of algebraic equations for each element. The finite element equations from all elements are then assembled together to form a large set of simultaneous equations. The boundary conditions of the problem are applied prior to solving for the unknowns at all nodes (Dechaumpai, 2024).
+
+---
+
+## What is finite element analysis?
+<!-- incremental -->
+![alt text](image-1.png?scale=0.65)
+<!-- incremental -->
+![alt text](image-2.png?scale=0.8)
+
+|||
+<!-- incremental -->
+![alt text](image-3.png?scale=0.7)
+<!-- incremental -->
+![alt text](image-4.png?scale=0.8)
 
 ---
 
 ## What is finite element analysis?
 
-`A numerical method for continuum problems`
 
 <!-- incremental -->
-
-*Continuum* (infinite unknowns) -> **discretize** -> *mesh* of elements + nodes -> **assemble** -> solve once.
-
+```pyxel-flow
+direction=right
+color=2
+gap=12
+Continuum|
+Discretization|
+Finite element|equations
+Assembly|
+Solve|
+```
 <!-- incremental -->
-
 ```pyxel-canvas
 width=300
 height=104
@@ -197,28 +236,111 @@ text 204 8 "discretized" color=1
 text 168 92 "finite unknowns" color=3
 ```
 
+---
+
+## What is finite element analysis?
+
 <!-- incremental -->
 
-==**Trade-off:**== smaller elements -> more accurate, but more elements -> more computation.
+- <u>Smaller elements</u> -> more accurate, but more elements -> more computational time
+
+<!-- incremental -->
+- <u>Larger elements</u> -> less elements, but less accuracy -> less computational time
+
+<!-- incremental -->
+```pyxel-canvas
+width=380
+height=200
+bg=2
+align=center
+
+# --- LEFT SIDE: COARSE MESH ---
+# Coarse grid lines
+line 20 65 125 65 color=5
+line 20 90 130 90 color=5
+line 20 115 125 115 color=5
+line 45 40 45 140 color=5
+line 70 40 70 140 color=5
+line 95 40 95 140 color=5
+line 120 40 120 140 color=5
+
+# Mask the hole to clear the grid inside it
+circle 70 90 14 color=0 fill=0
+
+# Draw coarse plate boundaries and hole
+line 20 40 120 40 color=7
+line 20 140 120 140 color=7
+line 20 40 20 140 color=7
+curve 120,40 150,90 150,90 120,140 color=7 steps=5
+circle 70 90 15 color=7
+
+# Label
+text 35 160 "Coarse Mesh" color=7 size=2
+
+# --- RIGHT SIDE: FINE MESH ---
+# Fine grid lines (Horizontal)
+line 220 50 322 50 color=13
+line 220 60 326 60 color=13
+line 220 70 332 70 color=13
+line 220 80 336 80 color=13
+line 220 90 338 90 color=13
+line 220 100 336 100 color=13
+line 220 110 332 110 color=13
+line 220 120 326 120 color=13
+line 220 130 322 130 color=13
+
+# Fine grid lines (Vertical)
+line 230 40 230 140 color=13
+line 240 40 240 140 color=13
+line 250 40 250 140 color=13
+line 260 40 260 140 color=13
+line 280 40 280 140 color=13
+line 290 40 290 140 color=13
+line 300 40 300 140 color=13
+line 310 40 310 140 color=13
+line 320 40 320 140 color=13
+
+# Mask the hole to clear the grid inside it
+circle 270 90 14 color=0 fill=0
+
+# Draw fine plate boundaries and hole
+line 220 40 320 40 color=7
+line 220 140 320 140 color=7
+line 220 40 220 140 color=7
+curve 320,40 350,90 350,90 320,140 color=7 steps=16
+circle 270 90 15 color=7
+
+# Label
+text 245 160 "Fine Mesh" color=7 size=2
+```
 
 ---
 
-## FEA dictionary: the model
-
-`Discretization vocabulary`
+## Some terms
 
 <!-- incremental -->
-- **Mathematical model** - governing equations + idealizations
+`Mathematical model`
+- A differential equation or a set of differential equations that mimic the behavior of a natural or physical system.
 <!-- incremental -->
-- **Domain** - the physical region (plate, beam, truss)
+`Domain`
+- Everything that is in the system, including geometry, loads, constraints.
 <!-- incremental -->
-- **Discretization** - continuous -> finite pieces
+`Node`
+- A point in the domain.
 <!-- incremental -->
-- **Mesh** - the elements + nodes covering the domain
+`Element`
+- A group of adjacent nodes that are related to each other by the mathematical model.
 <!-- incremental -->
-- **Element size** *h* - smaller *h* = finer mesh = more compute
+`Discretization`
+- The process of dividing the domain into nodes and elements.
 
 |||
+<!-- incremental -->
+`Finite element mesh`
+- The result of discretization, a collection of nodes and elements approximating the domain. 
+<!-- incremental -->
+`Element size`
+- Distance between two nodes in an element, denoted by *h*.
 
 <!-- incremental -->
 
@@ -268,52 +390,33 @@ text 8 116 "smaller h = finer mesh" color=3
 
 ---
 
-## FEA dictionary: the computation
-
-`From element to global equation`
+## Some terms
 
 <!-- incremental -->
-- **Node** - where elements meet; displacements live here
+`Boundary`
+- Edge (2D) or surface (3D) of the domain.
 <!-- incremental -->
-- **Element** - one mesh piece; its stiffness *k* is computed here
+`Boundary conditions`
+- Loads and constraints that occur at the boundary.
 <!-- incremental -->
-- **Boundary condition** - supports (fixed DOFs) + loads (forces)
+`Finite element equation`
+- A matrix equation derived from the <u>integral formulation</u> of a mathematical model.
 <!-- incremental -->
-- **Finite element equation** - *k d = f* -> assembled *K d = F*
-<!-- incremental -->
-- **Assembly** - summing every *k* block into global *K*
+- Takes the form ==**ku = f + q**==. Small letters denote that it is for an element. Here,
+    - **k** = stiffness matrix
+    - **u** = displacements vector
+    - **f** = point load vector
+    - **q** = distributed load vector
 
 |||
 
 <!-- incremental -->
+`Assembly`
+- Combining the finite element equations from all elements into a single finite element equation for the domain. 
+<!-- incremental -->
+- Takes the form ==**KU = F + Q**==. The capital letters denote that it is for the whole structure.
 
-```pyxel-canvas
-width=172
-height=76
-bg=0
-border=0
-line 24 58 132 58 color=14 thickness=2
-line 24 58 24 14 color=14 thickness=2
-line 132 58 24 14 color=14 thickness=2
-circle 24 58 3 color=2
-circle 132 58 3 color=2
-circle 24 14 3 color=2
-line 16 67 24 56 color=3
-line 24 56 32 67 color=3
-line 12 67 36 67 color=3
-line 124 67 132 56 color=3
-line 132 56 140 67 color=3
-circle 127 70 2 color=3 fill=3
-circle 137 70 2 color=3 fill=3
-line 122 74 142 74 color=3
-line 24 14 24 30 color=5 thickness=2
-line 20 25 24 30 color=5 thickness=2
-line 28 25 24 30 color=5 thickness=2
-text 4 46 "1" color=1
-text 140 46 "2" color=1
-text 4 2 "3" color=1
-```
-
+<!-- incremental -->
 ```pyxel-canvas
 width=172
 height=108
@@ -391,243 +494,486 @@ text 50 94 "K = k1 + k2 + k3" color=3
 
 ---
 
-# Part 2
+# Part 3
 
-**The matrix stiffness method**
-
----
-
-## Data structures for structural engineers
-
-`Mesh -> arrays`
-
-```pyxel-flow
-direction=down
-gap=8
-color=2
-nodes|np.array([[0,0],[4,0],[0,3]])
-elements|[(0,1),(0,2),(1,2)]
-E, A|200e6, 0.01
-```
+**Python FEA from scratch**
 
 ---
 
-## The matrix stiffness method
-
-`For one truss member, the local stiffness matrix is`
-
-```pyxel-flow
-direction=down
-gap=8
-color=2
-k_local|(EA/L) * [[1,-1],[-1,1]]
-transform|T^T * k_local * T
-k_global|4x4 with c=cos, s=sin
-```
-
----
-
-## The matrix stiffness method
-
-`In Python, the transformed member matrix becomes`
-
-```python
-c, s = (x2 - x1) / L, (y2 - y1) / L
-
-k_global = k * np.array([
-    [ c*c,  c*s, -c*c, -c*s],
-    [ c*s,  s*s, -c*s, -s*s],
-    [-c*c, -c*s,  c*c,  c*s],
-    [-c*s, -s*s,  c*s,  s*s],
-])
-```
+## Basic Python FEA concepts
 
 <!-- incremental -->
-A 4x4 matrix - two translational degrees of freedom per node.
-
----
-
-## Global assembly
-
-Each member matrix lands in *K* at the rows/columns of its nodes.
-
+### General procedure
+<!-- incremental -->
 ```pyxel-flow
-direction=down
+direction=right
 gap=8
 color=2
-K = zeros(ndof, ndof)
-dofs = [2*n1, 2*n1+1, 2*n2, 2*n2+1]
-K[dofs, dofs] += k_global
+1|dimensions, DOF
+2|nodes
+3|elements
+4|materials
+5|sections
 ```
 
-<!-- incremental -->
-`np.ix_` fancy indexing drops each 4x4 block into the 6x6 *K*. Members sharing a node simply add up.
-
----
-
-## Boundary conditions
-
-A structure needs supports, or *K* is singular.
-
-<!-- incremental -->
 
 ```pyxel-flow
 direction=right
-gap=12
-color=2
-Method 1|partitioning|exact
-Method 2|penalty|1e15
-```
-
-<!-- incremental -->
-Partitioning: `d[free] = solve(K[free, free], F[free])`
-<!-- incremental -->
-Penalty: `K[fixed, fixed] += 1e15; d = solve(K, F)`
-
----
-
-## The big picture
-
-`From model to answers, in five steps`
-
-<!-- incremental -->
-
-```pyxel-flow
-direction=down
 gap=8
 color=2
-1. Nodes and elements|arrays
-2. Global stiffness K|K += k_global
-3. Loads and supports|F, fixed
-4. Solve F = K d|np.linalg.solve
-5. Forces and reactions|post-process
+6|constraints
+7|loads
+8|post-processors
+9|solver options
+10|RUN ANALYSIS
 ```
-
 <!-- incremental -->
-Steps 1-4 are the *engine*. Step 5 turns numbers back into engineering insight.
-
----
-
-# Part 3
-
-**The Python FEA toolbox**
-
----
-
-## The `numpy` library
-
-`The backbone of matrix operations`
-
-Why plain Python lists are too slow:
-
+### Nodes
+<!-- incremental -->
+Nodes can be represented as a list/tuple,
+<!-- incremental -->
 ```python
-import time
+coords = [(0, 0, 0), (0, 6, 0), (6, 0, 0), (2, 2, 4)]
+```
+<!-- incremental -->
+...or as a dictionary,
+<!-- incremental -->
+```python
+coords = {"P1": (0, 0, 0), "P2": (0, 6, 0), "P3": (6, 0, 0), "P4": (2, 2, 4)}
+```
+<!-- incremental -->
+...or as an instance of a class.
+<!-- incremental -->
+```python
+class Node:
+    def __init__(self, x, y, z, id) :
+        self.x, self.y, self.z, self.id = x, y, z, id
 
-K = [[(i + j) % 7 for j in range(500)]
-     for i in range(500)]
-v = [1.0] * 500
-
-t_start = time.time()
-for i in range(500):
-    s = 0.0
-    for j in range(500):
-        s += K[i][j] * v[j]
-t_end = time.time()
-print(round(t_end - t_start, 4))    # ~0.05 s
+P1 = Node(0, 0, 0, "P1")
 ```
 
 ---
 
-## The `numpy` library
+## Basic Python FEA concepts
 
-*numpy* stores numbers in contiguous C arrays and calls optimized BLAS kernels.
+### Elements
+<!-- incremental -->
+Depending on your representation of nodes, your representation of elements will differ.
+<!-- incremental -->
+```python
+# Assuming using two-node bar elements.
+
+# as list/tuples
+elements = [(0, 3), (1, 3), (2, 3)]
+
+# as dictionaries
+elements = {"E1": ("P1", "P4"), "E2": ("P2", "P4"), "E3": ("P3", "P4")}
+
+# as class instances
+class Element:
+    def __init__(self, start, end):
+        self.start, self.end = start, end
+
+E1 = Element(P1, P4)
+```
+
+---
+
+## Basic Python FEA concepts
+
+### Element finite element equations
+<!-- incremental -->
+- To estimate the response of the system between nodes, <u>interpolation functions</u> are used.
+<!-- incremental -->
+- `First-order elements` are elements that use linear functions as interpolating functions.
+<!-- incremental -->
+- `Second-order elements` are elements that use quadratic functions as interpolating functions.
+<!-- incremental -->
+```pyxel-canvas
+width=500
+height=130
+align=center
+
+# Grid Labels
+text 0 35 "1st-Order" color=1
+text 0 95 "2nd-Order" color=1
+text 125 5 "1D" color=1
+text 275 5 "2D" color=1
+text 435 5 "3D" color=1
+
+# --- 1D LINE ELEMENT ---
+# Linear (2-node)
+line 100 38 160 38 color=5
+circle 100 38 3 fill=12 color=1
+circle 160 38 3 fill=12 color=1
+
+# Quadratic (3-node)
+line 100 98 160 98 color=5
+circle 100 98 3 fill=12 color=1
+circle 160 98 3 fill=12 color=1
+circle 130 98 3 fill=10 color=1
+
+# --- 2D QUADRILATERAL ELEMENT ---
+# Linear (4-node)
+line 250 18 310 18 color=5
+line 310 18 310 58 color=5
+line 310 58 250 58 color=5
+line 250 58 250 18 color=5
+circle 250 18 3 fill=12 color=1
+circle 310 18 3 fill=12 color=1
+circle 310 58 3 fill=12 color=1
+circle 250 58 3 fill=12 color=1
+
+# Quadratic (8-node serendipity)
+line 250 78 310 78 color=5
+line 310 78 310 118 color=5
+line 310 118 250 118 color=5
+line 250 118 250 78 color=5
+# Corners
+circle 250 78 3 fill=12 color=1
+circle 310 78 3 fill=12 color=1
+circle 310 118 3 fill=12 color=1
+circle 250 118 3 fill=12 color=1
+# Mid-edges
+circle 280 78 3 fill=10 color=1
+circle 310 98 3 fill=10 color=1
+circle 280 118 3 fill=10 color=1
+circle 250 98 3 fill=10 color=1
+
+# --- 3D TETRAHEDRAL ELEMENT ---
+# Linear (4-node)
+line 440 10 410 55 color=5
+line 440 10 470 55 color=5
+line 440 10 445 35 color=5
+line 410 55 470 55 color=5
+line 410 55 445 35 color=5
+line 470 55 445 35 color=5
+circle 440 10 3 fill=12 color=1
+circle 410 55 3 fill=12 color=1
+circle 470 55 3 fill=12 color=1
+circle 445 35 3 fill=12 color=1
+
+# Quadratic (10-node)
+line 440 70 410 115 color=5
+line 440 70 470 115 color=5
+line 440 70 445 95 color=5
+line 410 115 470 115 color=5
+line 410 115 445 95 color=5
+line 470 115 445 95 color=5
+# Corners
+circle 440 70 3 fill=12 color=1
+circle 410 115 3 fill=12 color=1
+circle 470 115 3 fill=12 color=1
+circle 445 95 3 fill=12 color=1
+# Mid-edges
+circle 425 92 3 fill=10 color=1
+circle 455 92 3 fill=10 color=1
+circle 442 82 3 fill=10 color=1
+circle 440 115 3 fill=10 color=1
+circle 427 105 3 fill=10 color=1
+circle 457 105 3 fill=10 color=1
+```
+<!-- incremental -->
+- Refer to FEA books (e.g. Reddy) on per-element finite element equations in matrix form.
+
+---
+
+## Basic Python FEA concepts
+
+### Assembly
+<!-- incremental -->
+```pyxel-canvas
+width=480
+height=240
+bg=0
+align=center
+
+# --- TITLE & PHYSICAL MESH ---
+text 40 15 "Direct Stiffness Assembly Mapping" color=4
+line 300 15 360 15 color=5
+circle 300 15 4 color=7 fill=8
+circle 330 15 4 color=7 fill=10
+circle 360 15 4 color=7 fill=12
+text 298 5 "1" color=4
+text 328 5 "2" color=4
+text 358 5 "3" color=4
+text 380 13 "Physical Mesh" color=5
+
+# --- ELEMENT 1 LOCAL MATRIX (Red) ---
+text 40 50 "Element 1 (K^1)" color=8
+rect 41 71 18 18 color=8 fill=8
+rect 61 71 18 18 color=8 fill=8
+rect 41 91 18 18 color=8 fill=8
+rect 61 91 18 18 color=8 fill=8
+# Element 1 Grid
+line 40 70 80 70 color=5
+line 40 90 80 90 color=5
+line 40 110 80 110 color=5
+line 40 70 40 110 color=5
+line 60 70 60 110 color=5
+line 80 70 80 110 color=5
+
+# --- ELEMENT 2 LOCAL MATRIX (Blue) ---
+text 40 140 "Element 2 (K^2)" color=12
+rect 41 161 18 18 color=12 fill=12
+rect 61 161 18 18 color=12 fill=12
+rect 41 181 18 18 color=12 fill=12
+rect 61 181 18 18 color=12 fill=12
+# Element 2 Grid
+line 40 160 80 160 color=5
+line 40 180 80 180 color=5
+line 40 200 80 200 color=5
+line 40 160 40 200 color=5
+line 60 160 60 200 color=5
+line 80 160 80 200 color=5
+
+# --- GLOBAL STIFFNESS MATRIX ---
+text 280 40 "Global Stiffness Matrix (K^G)" color=4
+
+# Mapped Element 1 contributions
+rect 281 61 18 18 color=8 fill=8
+rect 301 61 18 18 color=8 fill=8
+rect 281 81 18 18 color=8 fill=8
+
+# Mapped Element 2 contributions
+rect 321 81 18 18 color=12 fill=12
+rect 301 101 18 18 color=12 fill=12
+rect 321 101 18 18 color=12 fill=12
+
+# Superposition (Overlap at Node 2)
+rect 301 81 18 18 color=10 fill=10
+
+# Global Matrix Grid (4x4 to show boundary)
+line 280 60 360 60 color=5
+line 280 80 360 80 color=5
+line 280 100 360 100 color=5
+line 280 120 360 120 color=5
+line 280 140 360 140 color=5
+line 280 60 280 140 color=5
+line 300 60 300 140 color=5
+line 320 60 320 140 color=5
+line 340 60 340 140 color=5
+line 360 60 360 140 color=5
+
+# Global DOF Labels
+text 287 52 "1" color=5
+text 307 52 "2" color=5
+text 327 52 "3" color=5
+text 347 52 "4" color=5
+text 270 67 "1" color=5
+text 270 87 "2" color=5
+text 270 107 "3" color=5
+text 270 127 "4" color=5
+
+# --- MAPPING ARROWS ---
+arrow 90 90 270 80 color=8 head=6
+arrow 90 180 270 100 color=12 head=6
+
+# --- LEGEND ---
+rect 280 170 10 10 color=8 fill=8
+text 295 172 "Element 1 DOF Map" color=4
+rect 280 190 10 10 color=12 fill=12
+text 295 192 "Element 2 DOF Map" color=4
+rect 280 210 10 10 color=10 fill=10
+text 295 212 "Superposition at Node 2 (Addition)" color=4
+```
+
+---
+
+## Basic Python FEA concepts
+
+### Applying boundary conditions
+<!-- incremental -->
+```pyxel-canvas
+width=480
+height=210
+bg=0
+align=center
+
+# --- TITLE & CONTEXT ---
+text 20 15 "Applying Boundary Conditions (Direct Elimination)" color=4
+text 20 30 "Fixed support at Node 1 (D1 = 0). Eliminate Row 1 and Col 1." color=10
+
+# --- HIGHLIGHT ACTIVE PARTITIONS ---
+# Left Side Active Zones
+rect 44 104 72 72 color=1 fill=1
+rect 140 104 24 72 color=1 fill=1
+rect 200 104 24 72 color=1 fill=1
+
+# Right Side Active Zones (Reduced System)
+rect 310 104 72 72 color=1 fill=1
+rect 400 104 24 72 color=1 fill=1
+rect 450 104 24 72 color=1 fill=1
+
+# --- LEFT SIDE: FULL SYSTEM [K]{D}={F} ---
+text 60 55 "[ K ]" color=4
+text 142 55 "{ D }" color=4
+text 202 55 "{ F }" color=4
+text 178 124 "=" color=7 size=2
+
+# K Matrix Grid (4x4)
+line 20 80 116 80 color=5
+line 20 104 116 104 color=5
+line 20 128 116 128 color=5
+line 20 152 116 152 color=5
+line 20 176 116 176 color=5
+line 20 80 20 176 color=5
+line 44 80 44 176 color=5
+line 68 80 68 176 color=5
+line 92 80 92 176 color=5
+line 116 80 116 176 color=5
+
+# D Vector Grid (4x1)
+line 140 80 164 80 color=5
+line 140 104 164 104 color=5
+line 140 128 164 128 color=5
+line 140 152 164 152 color=5
+line 140 176 164 176 color=5
+line 140 80 140 176 color=5
+line 164 80 164 176 color=5
+
+# F Vector Grid (4x1)
+line 200 80 224 80 color=5
+line 200 104 224 104 color=5
+line 200 128 224 128 color=5
+line 200 152 224 152 color=5
+line 200 176 224 176 color=5
+line 200 80 200 176 color=5
+line 224 80 224 176 color=5
+
+# Matrix Dummy Variables (to show what is deleted)
+text 25 88 "k11" color=6
+text 49 88 "k12" color=6
+text 73 88 "k13" color=6
+text 97 88 "k14" color=6
+text 25 112 "k21" color=6
+text 25 136 "k31" color=6
+text 25 160 "k41" color=6
+
+# Vector Values
+text 148 88 "0" color=10
+text 146 112 "D2" color=7
+text 146 136 "D3" color=7
+text 146 160 "D4" color=7
+
+text 206 88 "R1" color=10
+text 206 112 "F2" color=7
+text 206 136 "F3" color=7
+text 206 160 "F4" color=7
+
+# Strike-throughs (Red)
+line 15 92 121 92 color=8 thickness=2
+line 32 75 32 181 color=8 thickness=2
+line 135 92 169 92 color=8 thickness=2
+line 195 92 229 92 color=8 thickness=2
+
+# --- TRANSFORMATION ARROW ---
+arrow 245 128 290 128 color=10 head=6 thickness=2
+text 248 114 "Reduce" color=10
+
+# --- RIGHT SIDE: REDUCED SYSTEM ---
+text 330 79 "[ K_red ]" color=4
+text 392 79 "{ D_red }" color=4
+text 442 79 "{ F_red }" color=4
+text 431 136 "=" color=7 size=2
+
+# Reduced K Matrix Grid (3x3)
+line 310 104 382 104 color=5
+line 310 128 382 128 color=5
+line 310 152 382 152 color=5
+line 310 176 382 176 color=5
+line 310 104 310 176 color=5
+line 334 104 334 176 color=5
+line 358 104 358 176 color=5
+line 382 104 382 176 color=5
+
+# Reduced D Vector Grid (3x1)
+line 400 104 424 104 color=5
+line 400 128 424 128 color=5
+line 400 152 424 152 color=5
+line 400 176 424 176 color=5
+line 400 104 400 176 color=5
+line 424 104 424 176 color=5
+
+# Reduced F Vector Grid (3x1)
+line 450 104 474 104 color=5
+line 450 128 474 128 color=5
+line 450 152 474 152 color=5
+line 450 176 474 176 color=5
+line 450 104 450 176 color=5
+line 474 104 474 176 color=5
+
+# Reduced Vector Values
+text 406 112 "D2" color=7
+text 406 136 "D3" color=7
+text 406 160 "D4" color=7
+
+text 456 112 "F2" color=7
+text 456 136 "F3" color=7
+text 456 160 "F4" color=7
+```
+
+---
+
+## Basic Python FEA concepts
+
+### Python libraries
+<!-- incremental -->
+- `numpy` for matrix creation and operations. Install using `pip install numpy`.
+<!-- incremental -->
+```python hl=1,7,11,13
+import numpy as np                  # Import the numpy library.
+
+k1, k2 = 4000, 6000
+K = [[ k1,     -k1,   0],
+     [-k1, k1 + k2, -k2],
+     [  0,     -k2,  k2]]
+K = np.array(K, dtype='float')      # Create the numpy array.
+
+f1, f2 = 3000, 5000
+F = [f1, f1 + f2, f2]
+F = np.array(F, dtype='float').T    # Create the numpy array, then transpose.
+
+U = np.linalg.inv(K) @ F            # Solve the system [K]{U} = {F} using matrix inverse method 
+print(U)                            # {U} = [K]^-1 {F}.
+```
+
+---
+
+## Basic Python FEA concepts
+
+### Python libraries
+<!-- incremental -->
+- `scipy` for faster matrix operations, especially for <u>sparse arrays</u>.
+<!-- incremental -->
+- A `sparse array` is a type of matrix in which most of the entries are zero.
+<!-- incremental -->
+[Example from here](https://docs.scipy.org/doc/scipy/reference/sparse.html)
 
 ```python
 import numpy as np
+from scipy.sparse import csr_array                  # Import the scipy library.
 
-K = np.array(K, dtype='float')
-v = np.array(v)
-
-t_start = time.time()
-K @ v
-t_end = time.time()
-print(round(t_end - t_start, 4))    # ~0.0004 s
+A = csr_array([[1, 2, 0], [0, 0, 3], [4, 0, 5]])    # Create a compressed sparse row array.
+v = np.array([1, 0, -1])
+u = A @ v
+print(u)
 ```
-
-<!-- incremental -->
-`About 100 times faster - and it only gets better as the model grows.`
-
----
-
-## The `scipy` library
-
-`Sparse matrices`
-
-Stiffness matrices are *mostly zeros*.
-
-```pyxel-flow
-direction=down
-gap=8
-color=2
-K_sparse = csr_matrix(K)
-Dense 800 DOFs|5.12 MB -> 20 GB at 50k
-CSR sparse|0.04 MB -> ~150 MB at 50k
-```
-
-<!-- incremental -->
-`Less than 1% of the entries are non-zero. Sparse is not optional - it is the only way.`
-
----
-
-## Solvers and post-processing
-
-`Solving F = Kd`
-
-<!-- incremental -->
-```python
-from scipy.linalg import solve            # dense
-from scipy.sparse.linalg import spsolve   # sparse
-
-d = solve(K_free, F_free)     # small models
-d = spsolve(K_sparse, F)      # large models
-```
-
-|||
-
-<!-- incremental -->
-`Shear and moment diagrams`
-
-```pyxel-graph
-width=160
-height=110
-bg=9
-border=14
-x=0,5
-y=-30,35
-grid=true
-plot 25-10*x color=2 thickness=3
-plot 25*x-5*x^2 color=5 thickness=3
-```
-
-<!-- incremental -->
-*V = 25 - 10x* (color 2) and *M = 25x - 5x^2* (color 5) for a simply supported beam.
 
 ---
 
 # Part 4
 
-**Live code: a 2D truss solver**
+**Example 1: A two-dimensional truss analysis program**
 
 ---
 
-## Live code: a 2D truss solver
+## A two-dimensional truss program
 
 ### Problem setup
-
-A 3-member pin-jointed truss. Node 1 pinned, node 2 on a roller, node 3 carries the loads.
-
-E = 200e6 kN/m^2, A = 0.01 m^2
-
+<!-- incremental -->
+A 3-member pin-jointed truss. Node 1 pinned, node 2 on a roller, node 3 carries the loads. E = 200e6 kN/m^2, A = 0.01 m^2
+<!-- incremental -->
 ```pyxel-canvas
 width=152
 height=152
@@ -667,7 +1013,7 @@ text 28 48 "10 kN" color=5
 
 <!-- incremental -->
 `Why this example?`
-
+<!-- incremental -->
 ```pyxel-flow
 direction=down
 gap=6
@@ -680,338 +1026,164 @@ Exact answers exist
 
 ---
 
-## Live code: a 2D truss solver
+# Part 5
 
-==**Step 1**== Define nodes and elements.
-
-```python
-import numpy as np
-
-nodes = np.array([[0.0, 0.0],   # node 1
-                  [4.0, 0.0],   # node 2
-                  [0.0, 3.0]])  # node 3
-elements = [(0, 1), (0, 2), (1, 2)]
-E, A = 200e6, 0.01
-
-ndof = 2 * len(nodes)       # 6 DOFs
-K = np.zeros((ndof, ndof))
-```
-
-<!-- incremental -->
-`Each node owns two DOFs: ux (index 2n) and uy (index 2n+1).`
+**Python FEA libraries**
 
 ---
 
-## Live code: a 2D truss solver
+## Python FEA libraries
 
-==**Step 2**== Generate and assemble the global stiffness matrix.
-
-```python hl=6,7,8,9,10,11
-for n1, n2 in elements:
-    x1, y1 = nodes[n1]; x2, y2 = nodes[n2]
-    L = np.hypot(x2 - x1, y2 - y1)
-    c, s = (x2 - x1) / L, (y2 - y1) / L
-    k = E * A / L
-    k_global = k * np.array([
-        [ c*c,  c*s, -c*c, -c*s],
-        [ c*s,  s*s, -c*s, -s*s],
-        [-c*c, -c*s,  c*c,  c*s],
-        [-c*s, -s*s,  c*s,  s*s],
-    ])
-    dofs = [2*n1, 2*n1 + 1, 2*n2, 2*n2 + 1]
-    K[np.ix_(dofs, dofs)] += k_global
-```
-
-<!-- incremental -->
-`Three passes through the loop, three 4x4 blocks added into the 6x6 K.`
+![alt text](image-6.png?scale=1.3)
 
 ---
 
-## Live code: a 2D truss solver
-
-==**Step 3**== Apply loads and boundary conditions.
-
-```python hl=4,5,6
-F = np.zeros(ndof)
-F[4] = 5.0       # u3 = 5 kN (right)
-F[5] = -10.0     # v3 = -10 kN (down)
-
-fixed = [0, 1, 3]     # u1, v1 (pin), v2 (roller)
-free = [d for d in range(ndof) if d not in fixed]
-```
-
+## The `openseespy` library
 <!-- incremental -->
-
-```pyxel-flow
-direction=right
-gap=10
-color=2
-Node 1|pin|u1=v1=0
-Node 2|roller|v2=0
-Node 3|free|u3, v3 unknown
-```
-
----
-
-## Live code: a 2D truss solver
-
-==**Step 4**== Solve for the nodal displacements.
-
-```python hl=3
-d = np.zeros(ndof)
-d[free] = np.linalg.solve(K[np.ix_(free, free)],
-                          F[free])
-print(d)
-```
-
+==OpenSees (Open System for Earthquake Engineering Simulation)== is a software framework for developing applications to simulate the performance of structural and geotechnical systems subjected to earthquakes, developed by the Pacific Earthquake Engineering Research (PEER) Center.
 <!-- incremental -->
+```bash
+# Install the main library.
+pip install openseespy
 
-```pyxel-flow
-direction=down
-gap=6
-color=2
-u2 = 0.010 mm
-u3 = 0.0225 mm
-v3 = -0.00938 mm
-```
-
-<!-- incremental -->
-`Tiny displacements - exactly what steel-sized stiffness predicts.`
-
----
-
-## Live code: a 2D truss solver
-
-==**Step 5**== Back-calculate reactions and member forces.
-
-```python hl=2,3
-R = K @ d - F          # reactions at supports
-print(R[fixed])        # [-5.    6.25  3.75] kN
-```
-
-<!-- incremental -->
-
-```python
-member_forces = []
-for n1, n2 in elements:
-    x1, y1 = nodes[n1]; x2, y2 = nodes[n2]
-    L = np.hypot(x2 - x1, y2 - y1)
-    c, s = (x2 - x1) / L, (y2 - y1) / L
-    elong = (d[2*n2]*c + d[2*n2 + 1]*s) \
-            - (d[2*n1]*c + d[2*n1 + 1]*s)
-    member_forces.append(float(E * A / L * elong))
-print(member_forces)   # [5.0, -6.25, -6.25] kN
-```
-
----
-
-## Live code: a 2D truss solver
-
-### Visualization
-
-`Original vs. deformed shape`
-
-```python
-import matplotlib.pyplot as plt
-
-scale = 10000
-deformed = nodes + scale * d.reshape(-1, 2)
-
-fig, ax = plt.subplots()
-for n1, n2 in elements:
-    ax.plot([nodes[n1, 0], nodes[n2, 0]],
-            [nodes[n1, 1], nodes[n2, 1]], "b-o")
-    ax.plot([deformed[n1, 0], deformed[n2, 0]],
-            [deformed[n1, 1], deformed[n2, 1]], "r--")
-ax.set_aspect("equal")
-ax.set_title("Original vs. deformed shape")
+# Install results visualization engine.
+pip install opsvis      # using matplotlib
+pip install vfo         # using pyvista
 ```
 
 |||
-
-```pyxel-canvas
-width=152
-height=152
-bg=0
-border=0
-line 24 124 128 124 color=14
-line 24 124 24 32 color=14
-line 128 124 24 32 color=14
-line 24 124 138 124 color=5 thickness=2
-line 24 124 47 44 color=5 thickness=2
-line 138 124 47 44 color=5 thickness=2
-circle 24 124 3 color=14
-circle 128 124 3 color=14
-circle 24 32 3 color=14
-circle 138 124 3 color=5
-circle 47 44 3 color=5
-text 4 142 "deformed shape x40000" color=1
-```
-
----
-
-# Part 5
-
-**Existing FEA frameworks**
-
----
-
-## Don't reinvent the wheel
-
-Custom matrix code is perfect for *learning* and *specialized apps*.
-
 <!-- incremental -->
-But real 3D projects need robust, battle-tested libraries.
-
+![alt text](image-7.png?scale=0.65)
 <!-- incremental -->
+![alt text](image-8.png?scale=0.69)
 
-```pyxel-flow
-direction=down
-gap=8
-color=2
-OpenSeesPy|structural + earthquake|frames, nonlinear, time history
-FEniCS|continuum mechanics|concrete stress, heat transfer
-SfePy|pythonic finite elements|general PDEs, research
-```
-
-<!-- incremental -->
-`Install and go: pip install openseespy`
+Soil-structure interaction.
 
 ---
 
 ## The `openseespy` library
 
-`The industry standard for advanced structural engineering`
-
 <!-- incremental -->
-The same 3-member truss, in OpenSeesPy:
-
+==Example 1== but using OpenSeesPy
+<!-- incremental -->
 ```python
 import openseespy.opensees as ops
-
 ops.wipe()
-ops.model('basic', '-ndm', 2, '-ndf', 2)  # 2D truss: ux, uy
 
+# Create a two-dimensional model with two
+# degrees of freedom only (translation x, y).
+ops.model('basic', '-ndm', 2, '-ndf', 2)
+
+# Create nodes.
 ops.node(1, 0.0, 0.0)
 ops.node(2, 4.0, 0.0)
 ops.node(3, 0.0, 3.0)
-ops.fix(1, 1, 1)     # pin
-ops.fix(2, 0, 1)     # roller (v2 fixed)
 
+# Create boundary conditions.
+ops.fix(1, 1, 1)     # pinned support
+ops.fix(2, 0, 1)     # roller support
+
+# Create material for each member.
 ops.uniaxialMaterial('Elastic', 1, 200e6)
+
+# Create elements and assign material.
 ops.element('Truss', 1, 1, 2, 0.01, 1)
 ops.element('Truss', 2, 1, 3, 0.01, 1)
 ops.element('Truss', 3, 2, 3, 0.01, 1)
 ```
 
 |||
-
 <!-- incremental -->
-Loads and analysis:
-
 ```python
+# Create loads
 ops.timeSeries('Linear', 1)
 ops.pattern('Plain', 1, 1)
-ops.load(3, 5.0, -10.0)
+ops.load(3, 5.0, -10.0)     # point load
 
+# Analysis options
 ops.constraints('Plain')
 ops.numberer('Plain')
 ops.system('BandGeneral')
-ops.algorithm('Linear')
-ops.analysis('Static')
+ops.algorithm('Linear')     # linear analysis
+ops.analysis('Static')      # static analysis
 ops.analyze(1)
 
+# Extract results.
 print(ops.nodeDisp(3))      # displacements
 print(ops.nodeReaction(1))  # reactions
 ```
-
-<!-- incremental -->
-`Nonlinear materials, pushover, earthquake time history - all just commands away.`
-
----
-
-## `fenics` and `sfepy`
-
-`For continuum mechanics`
-
-<!-- incremental -->
-When the problem is a *volume*, not a *skeleton*:
-
-<!-- incremental -->
-- Concrete stress distribution
-- Heat conduction and diffusion
-- Fluid-structure interaction
-
-<!-- incremental -->
-
-```pyxel-flow
-direction=down
-gap=8
-color=2
-1. Define the mesh|nodes + elements
-2. Assemble|weak-form matrices
-3. Boundary conditions
-4. Solve
-5. Post-process
-```
-
-<!-- incremental -->
-`If you understood Part 2, you already understand the engine inside these libraries.`
 
 ---
 
 # Part 6
 
+**Example 2: An isolated footing design program**
+
+---
+
+## Isolated footing program
+
+### Sample output
+
+![Output program](image.png?scale=1.4)
+
+---
+
+## Isolated footing program
+
+### Prompt
+
+> Take the role of a structural engineer with several years of experience in the analysis, design and detailing of structures of various heights and lengths (horizontal/vertical). ==Create a GUI program in Python using the PySide6 library== that does the following.<br/><br/>Accept as inputs: <br/>(a) 28-day compressive strength of concrete fc', <br/>(b) reinforcement yield strength fy, <br/>(c) soil bearing capacity SBC (kPa), <br/>(d) column dimensions along x and y directions (rectangular), <br/>(e) column eccentricity from center of footing along x and y directions, <br/>(f) factored service loads at column (Ps, Msx, Msy, Vsx, Vsy, Ts), <br/>(g) factored ultimate loads at column (Pu, Mux, Muy, Vux, Vuy, Tu), <br/>(h) footing maximum finite element size.
+
+---
+
+## Isolated footing program
+
+### Prompt
+
+> Accept as output: <br/>(a) a three-dimensional visualization of the footing, <br/>(b) upon pressing [Analyze and Design], create a finite element model using OpenSeesPy library,<br/>----> take the subgrade modulus as 120 times the SBC<br/>----> use compression-only springs to model the soil<br/>----> the stiffness of horizontal springs is 10% of the stiffness of vertical springs, <br/>(c) report the following (display contour plots in three-dimensional visualization):<br/>----> settlement (in mm),<br/>----> soil pressure (in kPa), <br/>(d) design the footing based on NSCP 2015 provisions, increase sizes iteratively where needed:<br/>----> footing dimension in the x- and y- directions,<br/>----> footing thickness from one-way and two-way shear checks<br/>----> footing reinforcement from one-way moment checks in each direction.
+
+---
+
+# Part 7
+
 **Next steps**
 
 ---
 
-## Tying it all together
-
-`One engineer, four Webtalks, one complete product`
-
-<!-- incremental -->
-
-```pyxel-flow
-direction=right
-gap=12
-color=2
-Webtalk 1|debugging
-Webtalk 2|automation
-Webtalk 3|the UI
-Webtalk 4|the engine
-```
-
-<!-- incremental -->
-A Python FEA backend (today), wrapped in a UI (Webtalk 3), automated (Webtalk 2), debugged with agentic coding (Webtalk 1).
-
-<!-- incremental -->
-==**That is an app.**==
-
----
-
-## The future of structural engineering
-
-`From software consumers to software developers`
-
-<!-- incremental -->
-- Commercial software solves *common* problems well.
-<!-- incremental -->
-- Your projects will have problems nobody has coded yet.
-<!-- incremental -->
-- Engineers who write their own tools are no longer limited by a menu.
+## Putting it all together
 
 <!-- incremental -->
 
 ```pyxel-flow
 direction=down
-gap=8
-color=2
-Buy solutions
-Build them
+gap=12
+color=8
+Webtalk 1|Code in Python and use AI
+Webtalk 2|Automate engineering stuff
+Webtalk 3|Create and publish applications
+Webtalk 4|Create advanced applications using FEA
+*** AN AMAZING APP ***
 ```
 
-==**Shift from buying solutions to building them.**==
+|||
+<!-- incremental -->
+Commercial software do their best to cover all possible use cases by the engineer.
+<!-- incremental -->
+However, there will be use cases that are not covered by the software.
+<!-- incremental -->
+Programming is there to give the engineer the power to make his own.
+<!-- incremental -->
+==From software user to software developer.==
+<!-- incremental -->
+```pyxel-flow
+direction=right
+gap=12
+color=7
+Buy|software
+Find|issues
+Build|solutions
+```
 
 ---
 

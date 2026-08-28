@@ -7,7 +7,7 @@ name = "pyxel-slides"
 version = "0.1.0"
 description = "Markdown-driven retro presentation engine built on Pyxel."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.13"
 license = { text = "MIT" }
 authors = [{ name = "pyxel-slides contributors" }]
 dependencies = [
@@ -23,6 +23,11 @@ full = [
     "Pillow>=10.0",
     "matplotlib>=3.8",
 ]
+fea = [
+    "matplotlib>=3.8",
+    "openseespy>=3.8.0.0",
+    "PySide6>=6.7",
+]
 dev = [
     "pytest>=8.0",
 ]
@@ -33,3 +38,6 @@ pyxel-slides = "pyxel_slides.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pyxel_slides*"]
+
+[tool.setuptools.package-data]
+pyxel_slides = ["assets/asep_structural/*"]
