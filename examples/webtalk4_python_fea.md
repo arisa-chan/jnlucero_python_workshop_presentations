@@ -970,58 +970,99 @@ print(u)
 
 ## A two-dimensional truss program
 
-### Problem setup
-<!-- incremental -->
-A 3-member pin-jointed truss. Node 1 pinned, node 2 on a roller, node 3 carries the loads. E = 200e6 kN/m^2, A = 0.01 m^2
-<!-- incremental -->
 ```pyxel-canvas
-width=152
-height=152
-bg=0
-border=0
-line 24 124 128 124 color=14 thickness=2
-line 24 124 24 32 color=14 thickness=2
-line 128 124 24 32 color=14 thickness=2
-circle 24 124 3 color=2
-circle 128 124 3 color=2
-circle 24 32 3 color=2
-line 16 133 24 122 color=3
-line 24 122 32 133 color=3
-line 12 133 36 133 color=3
-line 120 133 128 122 color=3
-line 128 122 136 133 color=3
-circle 123 136 2 color=3
-circle 133 136 2 color=3
-line 116 140 140 140 color=3
-line 24 32 24 46 color=5 thickness=2
-line 20 41 24 46 color=5 thickness=2
-line 28 41 24 46 color=5 thickness=2
-line 24 32 38 32 color=5 thickness=2
-line 34 28 38 32 color=5 thickness=2
-line 34 36 38 32 color=5 thickness=2
-text 6 118 "1" color=1
-text 132 118 "2" color=1
-text 6 22 "3" color=1
-text 66 116 "4 m" color=1
-text 4 78 "3 m" color=1
-text 62 62 "5 m" color=1
-text 42 30 "5 kN" color=5
-text 28 48 "10 kN" color=5
-```
+width=480
+height=270
+align=center
 
-|||
+# --- TITLE ---
+text 20 15 "Example" color=1 size=2
 
-<!-- incremental -->
-`Why this example?`
-<!-- incremental -->
-```pyxel-flow
-direction=down
-gap=6
-color=2
-Small|follow by hand
-Every FEA concept
-Exact answers exist
-3 members, 3 nodes, 6 DOFs
+# --- DIMENSIONS ---
+# Vertical 8m
+line 112 114 25 114 color=1
+line 70 170 25 170 color=1
+arrow 35 142 35 114 color=1 head=4
+arrow 35 142 35 170 color=1 head=4
+text 10 140 "8 m" color=1
+
+# Horizontal 12m, 18m, 12m (Placed clearly under the truss)
+text 105 185 "12 m" color=1
+text 210 185 "18 m" color=1
+text 315 185 "12 m" color=1
+
+# --- TRUSS MEMBERS ---
+line 70 170 154 170 color=1 thickness=2
+line 154 170 280 170 color=1 thickness=2
+line 280 170 364 170 color=1 thickness=2
+line 70 170 112 114 color=1 thickness=2
+line 112 114 154 170 color=1 thickness=2
+line 154 170 217 114 color=1 thickness=2
+line 112 114 217 114 color=1 thickness=2
+line 217 114 280 170 color=1 thickness=2
+line 217 114 322 114 color=1 thickness=2
+line 322 114 280 170 color=1 thickness=2
+line 322 114 364 170 color=1 thickness=2
+
+# --- SUPPORTS ---
+# Pin at A
+area 70,173 60,188 80,188 color=1 fill=1
+text 85 175 "Pin" color=1
+# Roller at D
+area 364,173 354,185 374,185 color=1 fill=1
+line 350 189 378 189 color=1 thickness=2
+text 370 175 "Roller" color=1
+
+# --- HINGE INDICATOR ---
+arrow 185 95 212 110 color=1 head=4
+text 155 90 "Hinge" color=1
+
+# --- NODES ---
+# Using white fill (7) so they pop against the navy outlines
+circle 70 170 3 color=1 fill=7 thickness=2
+circle 154 170 3 color=1 fill=7 thickness=2
+circle 280 170 3 color=1 fill=7 thickness=2
+circle 364 170 3 color=1 fill=7 thickness=2
+circle 112 114 3 color=1 fill=7 thickness=2
+circle 217 114 3 color=1 fill=7 thickness=2
+circle 322 114 3 color=1 fill=7 thickness=2
+
+# Node Labels (Moved away from the lines)
+text 40 155 "A (0, 0)" color=1
+text 160 155 "B (12, 0)" color=1
+text 285 155 "C (30, 0)" color=1
+text 370 155 "D (42, 0)" color=1
+text 100 100 "E (6, 8)" color=1
+text 210 100 "F (21, 8)" color=1
+text 320 100 "G (36, 8)" color=1
+
+# --- APPLIED LOADS (DOWNWARD) ---
+arrow 154 173 154 215 color=1 head=4 thickness=2
+text 140 220 "100 kN" color=1
+arrow 280 173 280 215 color=1 head=4 thickness=2
+text 265 220 "150 kN" color=1
+
+# --- REACTIONS ---
+arrow 35 170 65 170 color=1 head=4 thickness=2
+text 20 175 "AH" color=1
+arrow 70 215 70 190 color=1 head=4 thickness=2
+text 75 205 "AV" color=1
+arrow 364 215 364 190 color=1 head=4 thickness=2
+text 368 205 "BV" color=1
+
+# --- CROSS SECTION DETAIL ---
+text 360 15 "steel tubular section" color=1
+rect 390 30 40 40 color=1 thickness=3
+rect 395 35 30 30 color=1 thickness=2
+text 365 35 "6 mm" color=1
+arrow 365 48 390 48 color=1 head=3
+arrow 415 48 395 48 color=1 head=3
+text 435 45 "100 mm" color=1
+text 395 75 "100 mm" color=1
+
+# --- EQUATIONS ---
+text 20 235 "A = 0.1^2 - (0.1 - 2 * 0.006)^2 = 0.002256 m^2" color=1
+text 20 250 "E = 200 GPa = 200 * 10^6 kPa" color=1
 ```
 
 ---
@@ -1064,7 +1105,7 @@ Soil-structure interaction.
 ## The `openseespy` library
 
 <!-- incremental -->
-==Example 1== but using OpenSeesPy
+==Example==
 <!-- incremental -->
 ```python
 import openseespy.opensees as ops
