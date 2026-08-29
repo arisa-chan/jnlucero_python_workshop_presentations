@@ -151,15 +151,15 @@ In this talk, we will build FEA programs in two ways:
 
 ## What is finite element analysis?
 <!-- incremental -->
-![alt text](image-1.png?scale=0.65)
+![alt text](/ASEP%20Webinar%20Series%20W01/FEA_bridge.png?scale=0.65)
 <!-- incremental -->
-![alt text](image-2.png?scale=0.8)
+![alt text](/ASEP%20Webinar%20Series%20W01/FEA_steel_platform.png?scale=0.8)
 
 |||
 <!-- incremental -->
-![alt text](image-3.png?scale=0.7)
+![alt text](/ASEP%20Webinar%20Series%20W01/FEA_aerodynamics_car.png?scale=0.7)
 <!-- incremental -->
-![alt text](image-4.png?scale=0.8)
+![alt text](/ASEP%20Webinar%20Series%20W01/FEA_thermal.png?scale=0.8)
 
 ---
 
@@ -944,7 +944,7 @@ print(U)                            # {U} = [K]^-1 {F}.
 
 ### Python libraries
 <!-- incremental -->
-- `scipy` for faster matrix operations, especially for <u>sparse arrays</u>.
+- `scipy` for faster matrix operations, especially for <u>sparse arrays</u>. Install using `pip install scipy`.
 <!-- incremental -->
 - A `sparse array` is a type of matrix in which most of the entries are zero.
 <!-- incremental -->
@@ -1075,7 +1075,7 @@ text 20 250 "E = 200 GPa = 200 * 10^6 kPa" color=1
 
 ## Python FEA libraries
 
-![alt text](image-6.png?scale=1.3)
+![alt text](/ASEP%20Webinar%20Series%20W01/FEA_libraries.png?scale=1.3)
 
 ---
 
@@ -1094,9 +1094,9 @@ pip install vfo         # using pyvista
 
 |||
 <!-- incremental -->
-![alt text](image-7.png?scale=0.65)
+![alt text](/ASEP%20Webinar%20Series%20W01/FEA_SSI_model.png?scale=0.65)
 <!-- incremental -->
-![alt text](image-8.png?scale=0.69)
+![alt text](/ASEP%20Webinar%20Series%20W01/FEA_SSI_output.png?scale=0.69)
 
 Soil-structure interaction.
 
@@ -1166,7 +1166,7 @@ print(ops.nodeReaction(1))  # reactions
 
 ### Sample output
 
-![Output program](image.png?scale=1.4)
+![Output program](/ASEP%20Webinar%20Series%20W01/FEA_Example%202_output.png?scale=1.4)
 
 ---
 
@@ -1182,7 +1182,7 @@ print(ops.nodeReaction(1))  # reactions
 
 ### Prompt
 
-> Accept as output: <br/>(a) a three-dimensional visualization of the footing, <br/>(b) upon pressing [Analyze and Design], create a finite element model using OpenSeesPy library,<br/>----> take the subgrade modulus as 120 times the SBC<br/>----> use compression-only springs to model the soil<br/>----> the stiffness of horizontal springs is 10% of the stiffness of vertical springs, <br/>(c) report the following (display contour plots in three-dimensional visualization):<br/>----> settlement (in mm),<br/>----> soil pressure (in kPa), <br/>(d) design the footing based on NSCP 2015 provisions, increase sizes iteratively where needed:<br/>----> footing dimension in the x- and y- directions,<br/>----> footing thickness from one-way and two-way shear checks<br/>----> footing reinforcement from one-way moment checks in each direction.
+> Accept as output: <br/>(a) a three-dimensional visualization of the footing, <br/>(b) upon pressing [Analyze and Design], create a finite element model using OpenSeesPy library,<br/>----> take the subgrade modulus as 120 times the SBC<br/>----> use compression-only springs to model the soil<br/>----> the stiffness of horizontal springs is 10% of the stiffness of vertical springs, <br/>----> consider the actual stiffness of the plate elements (rather than rigid body assumption) when analyzing the footing<br/>(c) report the following (display contour plots in three-dimensional visualization):<br/>----> settlement (in mm),<br/>----> soil pressure (in kPa), <br/>(d) design the footing based on NSCP 2015 provisions, increase sizes iteratively where needed:<br/>----> footing dimension in the x- and y- directions,<br/>----> footing thickness from one-way and two-way shear checks<br/>----> footing reinforcement from one-way moment checks in each direction.
 
 ---
 
